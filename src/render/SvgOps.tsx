@@ -9,6 +9,7 @@ const COLOR: Record<InkColor, string> = {
   muted: 'var(--notation-muted)',
   staff: 'var(--staff-line)',
   paper: 'var(--sheet)',
+  faint: '#e3e5e9',
 };
 
 /** Print mode uses the PDF's standard fonts so the preview matches the exported file. */
@@ -47,6 +48,7 @@ function renderOp(op: Op, i: number, mode: FontMode) {
           fontWeight={op.bold ? 700 : 400}
           fontStyle={op.italic ? 'italic' : undefined}
           textAnchor={op.anchor}
+          transform={op.angle ? `rotate(${-op.angle} ${op.x} ${op.y})` : undefined}
           fill={color}
           xmlSpace="preserve"
         >

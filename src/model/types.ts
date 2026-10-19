@@ -50,11 +50,16 @@ export interface Note {
   techniques: NoteTechniques;
 }
 
-/** A rhythmic slot in a measure. A beat with no notes is a rest. */
+/**
+ * A rhythmic slot in a measure. A beat with no notes is silent; it shows a rest symbol only when
+ * `rest` is set, so a blank tab looks like blank staff paper rather than a page of rests.
+ */
 export interface Beat {
   id: string;
   duration: Duration;
   notes: Note[];
+  /** Written rest (set explicitly by the user). */
+  rest?: boolean;
 }
 
 export interface Measure {
@@ -86,9 +91,18 @@ export interface Track {
 
 export interface SongMeta {
   title: string;
+  subtitle: string;
   artist: string;
   album: string;
+  /** Music by. */
+  composer: string;
+  /** Words by. */
+  lyricist: string;
+  arranger: string;
   tabbedBy: string;
+  copyright: string;
+  /** Optional text printed faintly across every PDF page. Empty = no watermark. */
+  watermark: string;
 }
 
 export interface Song {

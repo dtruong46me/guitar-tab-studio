@@ -31,6 +31,7 @@ export function setNote(song: Song, pos: Position, fret: number): Song {
   if (pos.string < 0 || pos.string >= stringCount(song, pos.track)) return song;
   return produce(song, (draft) => {
     const beat = draft.tracks[pos.track].measures[pos.measure].beats[pos.beat];
+    delete beat.rest;
     const existing = beat.notes.find((n) => n.string === pos.string);
     if (existing) {
       existing.fret = fret;
@@ -93,12 +94,16 @@ export function setBeatDuration(song: Song, track: number, measure: number, beat
   });
 }
 
-/** Turn a beat into a rest by removing all of its notes. */
-export function clearBeat(song: Song, track: number, measure: number, beat: number): Song {
+/** Make a beat a written rest (removing its notes), or turn a rest back into an empty beat. */
+export function setRest(song: Song, track: number, measure: number, beat: number, rest: boolean): Song {
   const b = getBeat(song, track, measure, beat);
-  if (!b || b.notes.length === 0) return song;
+  if (!b || (rest && b.rest && b.notes.length === 0) || (!rest && !b.rest)) return song;
   return produce(song, (draft) => {
-    draft.tracks[track].measures[measure].beats[beat].notes = [];
+    const d = draft.tracks[track].measures[measure].beats[beat];
+    if (rest) {
+      d.notes = [];
+      d.rest = true;
+    } else delete d.rest;
   });
 }
 

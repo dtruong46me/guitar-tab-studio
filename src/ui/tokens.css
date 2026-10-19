@@ -41,6 +41,8 @@ body {
   .btn:active:not(:disabled) { transform: scale(0.97); }
   .btn:disabled { opacity: .4; cursor: default; }
   .btn-sm { @apply h-6 px-2 text-[11px]; }
+  /* View toggles (panels) show "on" quietly, keeping amber for actions and sound. */
+  .btn.btn-subtle[aria-pressed="true"], .btn.btn-subtle[aria-pressed="true"]:hover:not(:disabled) { background: var(--bg-300); color: var(--ink); border-color: transparent; }
   .btn-primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
   .btn-primary:hover:not(:disabled) { background: var(--accent-text); border-color: var(--accent-text); }
   .btn-ghost { background: transparent; border-color: transparent; }

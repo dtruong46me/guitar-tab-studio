@@ -218,8 +218,11 @@ export function editorReducer(s: EditorState, a: EditorAction): EditorState {
       return exec(s, cmd.deleteBeat(c), { ...c, beat: Math.max(0, c.beat - (c.beat === currentBeatsLength(s) - 1 ? 1 : 0)) });
     case 'insertBeat':
       return exec(s, cmd.insertBeat(c.track, c.measure, c.beat, s.inputDuration));
-    case 'makeRest':
-      return exec(s, cmd.clearBeat(c));
+    case 'makeRest': {
+      // R toggles: a written rest goes back to an empty beat.
+      const b = currentBeat(s);
+      return exec(s, cmd.setRest(c, !(b.rest && b.notes.length === 0)));
+    }
     case 'setDuration': {
       const d = { ...currentBeat(s).duration, value: a.value };
       return { ...exec(s, cmd.setBeatDuration(c, d)), inputDuration: d };

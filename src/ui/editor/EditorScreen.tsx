@@ -6,14 +6,19 @@ import { HelpDialog } from '../HelpDialog';
 import { PrintPreview } from '../PrintPreview';
 import { TabCanvas } from '../TabCanvas';
 import type { Theme } from '../theme';
-import { clampZoom, Ribbon } from './Ribbon';
+import { clampZoom } from './constants';
+import { Inspector } from './Inspector';
+import { usePanelPrefs } from './panelPrefs';
+import { PropertiesBar } from './PropertiesBar';
+import { SongInfoDialog } from './SongInfoDialog';
 import { StatusBar } from './StatusBar';
 import { TitleBar } from './TitleBar';
+import { ToolPalette } from './ToolPalette';
 import { TuningDialog } from './TuningDialog';
 import { useEditorSession } from './useEditorSession';
 import { usePlayback } from './usePlayback';
 
-type Dialog = 'print' | 'help' | 'tuning' | null;
+type Dialog = 'print' | 'help' | 'tuning' | 'songInfo' | null;
 
 interface Props {
   song: Song;
@@ -38,9 +43,14 @@ function isTyping(target: EventTarget | null): boolean {
   return !!el && (el.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName));
 }
 
+/**
+ * Editor layout: title bar and a slim properties bar on top (rarely changed settings), the tools
+ * panel on the left (used constantly), the sheet in the middle, the selection inspector on the right.
+ */
 export function EditorScreen({ song: initial, saved, onHome, notify, theme, onTheme }: Props) {
   const { state, dispatch, save, saveState, untouched } = useEditorSession(initial, saved);
   const playback = usePlayback(state.song, state.cursor);
+  const panel = usePanelPrefs();
   const [dialog, setDialog] = useState<Dialog>(null);
   const [zoom, setZoomState] = useState(initialZoom);
 
@@ -88,6 +98,9 @@ export function EditorScreen({ song: initial, saved, onHome, notify, theme, onTh
         case 'help':
           setDialog('help');
           break;
+        case 'songInfo':
+          setDialog('songInfo');
+          break;
         case 'zoomIn':
           setZoom(clampZoom(zoom + 0.1));
           break;
@@ -106,9 +119,15 @@ export function EditorScreen({ song: initial, saved, onHome, notify, theme, onTh
         case 'metronome':
           playback.update({ metronome: !playback.settings.metronome });
           break;
+        case 'toggleLeft':
+          panel.setPanel('left', !panel.prefs.left);
+          break;
+        case 'toggleRight':
+          panel.setPanel('right', !panel.prefs.right);
+          break;
       }
     },
-    [save, notify, playback, zoom, setZoom, togglePlay],
+    [save, notify, playback, zoom, setZoom, togglePlay, panel],
   );
 
   useEffect(() => {
@@ -145,28 +164,32 @@ export function EditorScreen({ song: initial, saved, onHome, notify, theme, onTh
         onToggle={togglePlay}
         onStop={playback.stop}
         onSettings={playback.update}
+        panels={{ left: panel.prefs.left, right: panel.prefs.right }}
+        onPanel={(side) => panel.setPanel(side, !panel.prefs[side])}
       />
-      <Ribbon
-        song={state.song}
-        cursor={state.cursor}
-        dispatch={dispatch}
-        zoom={zoom}
-        onZoom={setZoom}
-        theme={theme}
-        onTheme={onTheme}
-        onShortcuts={() => setDialog('help')}
-        onEditTuning={() => setDialog('tuning')}
-      />
-      <main className="flex-1 min-h-0 bg-bg0" aria-label="Tablature">
-        <TabCanvas song={state.song} cursor={state.cursor} zoom={zoom} playhead={playback.state === 'stopped' ? null : playback.playhead} onCursor={(pos) => dispatch({ type: 'setCursor', pos })} />
-      </main>
-      <StatusBar song={state.song} cursor={state.cursor} dispatch={dispatch} zoom={zoom} onZoom={setZoom} />
+      <PropertiesBar song={state.song} cursor={state.cursor} dispatch={dispatch} onSongInfo={() => setDialog('songInfo')} onEditTuning={() => setDialog('tuning')} />
+      <div className="flex-1 min-h-0 flex">
+        {panel.prefs.left && <ToolPalette song={state.song} cursor={state.cursor} dispatch={dispatch} panel={panel} />}
+        <main className="flex-1 min-w-0 bg-bg0" aria-label="Tablature">
+          <TabCanvas
+            song={state.song}
+            cursor={state.cursor}
+            zoom={zoom}
+            playhead={playback.state === 'stopped' ? null : playback.playhead}
+            onCursor={(pos) => dispatch({ type: 'setCursor', pos })}
+            onHeaderClick={() => setDialog('songInfo')}
+          />
+        </main>
+        {panel.prefs.right && <Inspector song={state.song} cursor={state.cursor} dispatch={dispatch} collapsed={panel.prefs.collapsed} onToggle={panel.toggleCollapsed} />}
+      </div>
+      <StatusBar song={state.song} cursor={state.cursor} dispatch={dispatch} zoom={zoom} onZoom={setZoom} theme={theme} onTheme={onTheme} />
 
       {dialog === 'print' && (
         <PrintPreview song={state.song} track={state.cursor.track} onClose={close} onExported={(name) => notify(`Downloaded ${name}.`)} onError={(m) => notify(m, 'error')} />
       )}
       {dialog === 'help' && <HelpDialog onClose={close} />}
       {dialog === 'tuning' && <TuningDialog tuning={track.instrument.tuning} onClose={close} onApply={(t) => dispatch({ type: 'exec', command: cmd.setTuning(state.cursor.track, t) })} />}
+      {dialog === 'songInfo' && <SongInfoDialog meta={state.song.meta} onClose={close} onApply={(patch) => dispatch({ type: 'exec', command: { ...cmd.setMeta(patch), label: 'Edit song info', mergeKey: undefined } })} />}
     </div>
   );
 }

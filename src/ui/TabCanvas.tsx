@@ -4,6 +4,7 @@ import type { Position, Song } from '../model/types';
 import { beatSequence, drawSystem } from '../layout/draw';
 import { findMeasure, hitTest, layoutTrack, noteLabel, type TrackLayout } from '../layout/layout';
 import { textWidth } from '../layout/ops';
+import { headerOps } from '../layout/header';
 import { SvgOps } from '../render/SvgOps';
 import { findNote } from '../model/operations';
 
@@ -19,9 +20,11 @@ interface Props {
   onCursor: (pos: Position) => void;
   /** Beat being played, if playback is running or paused. */
   playhead?: { measure: number; beat: number } | null;
+  /** Clicking the title block opens the song info. */
+  onHeaderClick?: () => void;
 }
 
-export function TabCanvas({ song, cursor, zoom, onCursor, playhead }: Props) {
+export function TabCanvas({ song, cursor, zoom, onCursor, playhead, onHeaderClick }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const cursorRef = useRef<SVGRectElement>(null);
@@ -48,7 +51,10 @@ export function TabCanvas({ song, cursor, zoom, onCursor, playhead }: Props) {
     return layout.systems.map((sys) => drawSystem(song, layout, sys, seq));
   }, [song, layout]);
 
-  const totalH = layout.height + SHEET_PAD * 2;
+  // The same title block the PDF prints, so the sheet reads like the finished page.
+  const header = useMemo(() => headerOps(song, 0, 0, width), [song, width]);
+  const bodyY = header.height + 10;
+  const totalH = bodyY + layout.height + SHEET_PAD * 2;
   const totalW = width + SHEET_PAD * 2;
 
   useEffect(() => {
@@ -66,7 +72,11 @@ export function TabCanvas({ song, cursor, zoom, onCursor, playhead }: Props) {
     const ctm = svg.getScreenCTM();
     if (!ctm) return;
     const pt = new DOMPoint(e.clientX, e.clientY).matrixTransform(ctm.inverse());
-    const hit = hitTest(layout, pt.x - SHEET_PAD, pt.y - SHEET_PAD);
+    if (pt.y - SHEET_PAD < header.height) {
+      onHeaderClick?.();
+      return;
+    }
+    const hit = hitTest(layout, pt.x - SHEET_PAD, pt.y - SHEET_PAD - bodyY);
     if (hit) onCursor({ track: cursor.track, ...hit });
   };
 
@@ -84,7 +94,11 @@ export function TabCanvas({ song, cursor, zoom, onCursor, playhead }: Props) {
           role="application"
           aria-label="Tablature editor. Use arrow keys to move, numbers to enter frets."
         >
-          <g transform={`translate(${SHEET_PAD} ${SHEET_PAD})`}>
+          <g transform={`translate(${SHEET_PAD} ${SHEET_PAD})`} className="cursor-pointer" data-tip="Edit song info">
+            <rect x={0} y={0} width={width} height={header.height} fill="transparent" />
+            <SvgOps ops={header.ops} />
+          </g>
+          <g transform={`translate(${SHEET_PAD} ${SHEET_PAD + bodyY})`}>
             {playhead && <PlayheadOverlay layout={layout} playhead={playhead} innerRef={playheadRef} />}
             <CursorOverlay song={song} layout={layout} cursor={cursor} cursorRef={cursorRef} />
             {layout.systems.map((sys, i) => (

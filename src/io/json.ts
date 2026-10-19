@@ -104,7 +104,9 @@ function normalizeSong(raw: unknown): ParseResult {
           notes.push({ string: s, fret: f, techniques: techniques(rn.techniques) });
         }
         notes.sort((a, b) => a.string - b.string);
-        beats.push({ id: str(rb.id, '') || newId(), duration: { value, dotted: d.dotted === true }, notes });
+        const beat: Beat = { id: str(rb.id, '') || newId(), duration: { value, dotted: d.dotted === true }, notes };
+        if (rb.rest === true && notes.length === 0) beat.rest = true;
+        beats.push(beat);
       }
       if (beats.length === 0) beats.push({ id: newId(), duration: { value: 4, dotted: false }, notes: [] });
       measures.push({ id: (isObj(rm) && str(rm.id, '')) || newId(), beats });
@@ -142,9 +144,15 @@ function normalizeSong(raw: unknown): ParseResult {
     id: str(raw.id, '') || newId(),
     meta: {
       title: str(meta.title, 'Untitled') || 'Untitled',
+      subtitle: str(meta.subtitle, ''),
       artist: str(meta.artist, ''),
       album: str(meta.album, ''),
+      composer: str(meta.composer, ''),
+      lyricist: str(meta.lyricist, ''),
+      arranger: str(meta.arranger, ''),
       tabbedBy: str(meta.tabbedBy, ''),
+      copyright: str(meta.copyright, '', 300),
+      watermark: str(meta.watermark, '', 60),
     },
     tempo,
     timeSignature: ts,

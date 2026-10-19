@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { MagnifyingGlassMinus, MagnifyingGlassPlus, Plus } from '@phosphor-icons/react';
+import { MagnifyingGlassMinus, MagnifyingGlassPlus, Moon, Plus, Sun } from '@phosphor-icons/react';
 import type { Position, Song } from '../../model/types';
 import { pitchClass } from '../../model/tuning';
 import * as cmd from '../../editor/commands';
 import type { EditorAction } from '../../editor/editor';
 import { Button, Menu } from '../controls';
-import { clampZoom, ZOOM_MAX, ZOOM_MIN } from './Ribbon';
+import { clampZoom, ZOOM_MAX, ZOOM_MIN } from './constants';
+import type { Theme } from '../theme';
 
 interface Props {
   song: Song;
@@ -13,10 +14,12 @@ interface Props {
   dispatch: (a: EditorAction) => void;
   zoom: number;
   onZoom: (z: number) => void;
+  theme: Theme;
+  onTheme: (t: Theme) => void;
 }
 
 /** Bottom bar: track tabs (like spreadsheet sheets) on the left, position and zoom on the right. */
-export function StatusBar({ song, cursor, dispatch, zoom, onZoom }: Props) {
+export function StatusBar({ song, cursor, dispatch, zoom, onZoom, theme, onTheme }: Props) {
   const [renaming, setRenaming] = useState<number | null>(null);
   const [draft, setDraft] = useState('');
   const track = song.tracks[cursor.track];
@@ -102,6 +105,7 @@ export function StatusBar({ song, cursor, dispatch, zoom, onZoom }: Props) {
         Bar {cursor.measure + 1}/{song.masterBars.length}, beat {cursor.beat + 1}, {pitchClass(track.instrument.tuning[cursor.string])} string
       </span>
       <div className="w-px h-4 bg-line mx-1" />
+      <Button size="sm" variant="ghost" icon={theme === 'studio' ? Sun : Moon} keepFocus onClick={() => onTheme(theme === 'studio' ? 'paper' : 'studio')} tip={theme === 'studio' ? 'Light theme' : 'Dark theme'} />
       <div className="flex items-center gap-1" role="group" aria-label="Zoom">
         <Button size="sm" variant="ghost" icon={MagnifyingGlassMinus} keepFocus disabled={zoom <= ZOOM_MIN} onClick={() => onZoom(clampZoom(zoom - 0.1))} tip="Zoom out" shortcut="Ctrl+-" />
         <input

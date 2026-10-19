@@ -10,6 +10,7 @@ import { drawSystem, beatSequence } from '../layout/draw';
 import { layoutTrack } from '../layout/layout';
 import type { Op } from '../layout/ops';
 import { translateOps } from '../layout/ops';
+import { headerOps, watermarkOp } from '../layout/header';
 
 export type Orientation = 'portrait' | 'landscape';
 
@@ -58,8 +59,10 @@ export function paginate(song: Song, opts: PrintOptions): Page[] {
     y = margin + runningHeader(ops, song, width, margin);
   };
 
-  // Title block on page 1.
-  y = margin + titleBlock(ops, song, width, margin);
+  // Title block on page 1 (the same header the editor sheet shows).
+  const header = headerOps(song, margin, margin, contentW);
+  ops.push(...header.ops);
+  y = margin + header.height;
 
   tracks.forEach((ti, n) => {
     if (n > 0) newPage();
@@ -76,30 +79,18 @@ export function paginate(song: Song, opts: PrintOptions): Page[] {
   pages.push(ops);
 
   const total = pages.length;
+  const watermark = watermarkOp(song.meta.watermark ?? '', width, height);
   return pages.map((pageOps, i) => {
     pageOps.push({ t: 'text', x: width / 2, y: height - margin / 2, text: `Page ${i + 1} of ${total}`, size: 8, font: 'sans', anchor: 'middle', c: 'muted' });
-    return { number: i + 1, width, height, ops: pageOps };
+    if (i === 0 && song.meta.copyright) {
+      pageOps.push({ t: 'text', x: width / 2, y: height - margin / 2 - 11, text: song.meta.copyright, size: 7.5, font: 'sans', anchor: 'middle', c: 'muted' });
+    }
+    return { number: i + 1, width, height, ops: watermark ? [watermark, ...pageOps] : pageOps };
   });
 }
 
-function titleBlock(ops: Op[], song: Song, width: number, margin: number): number {
-  const { title, artist, album, tabbedBy } = song.meta;
-  let h = 20;
-  ops.push({ t: 'text', x: width / 2, y: margin + h, text: title || 'Untitled', size: 20, font: 'sans', bold: true, anchor: 'middle', c: 'ink' });
-  const sub = [artist, album].filter(Boolean).join(' — ');
-  if (sub) {
-    h += 17;
-    ops.push({ t: 'text', x: width / 2, y: margin + h, text: sub, size: 11, font: 'sans', anchor: 'middle', c: 'ink' });
-  }
-  if (tabbedBy) {
-    h += 13;
-    ops.push({ t: 'text', x: width / 2, y: margin + h, text: `Tab by ${tabbedBy}`, size: 8.5, font: 'sans', italic: true, anchor: 'middle', c: 'muted' });
-  }
-  return h + 14;
-}
-
 function runningHeader(ops: Op[], song: Song, width: number, margin: number): number {
-  const label = [song.meta.title || 'Untitled', song.meta.artist].filter(Boolean).join(' — ');
+  const label = [song.meta.title || 'Untitled', song.meta.artist].filter(Boolean).join(', ');
   ops.push({ t: 'text', x: margin, y: margin - 14, text: label, size: 8, font: 'sans', anchor: 'start', c: 'muted' });
   ops.push({ t: 'line', x1: margin, y1: margin - 9, x2: width - margin, y2: margin - 9, w: 0.4, c: 'staff' });
   return 6;

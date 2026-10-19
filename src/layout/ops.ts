@@ -4,7 +4,8 @@
  * Units are PDF points (1/72 in); text `y` is the alphabetic baseline.
  */
 
-export type InkColor = 'ink' | 'muted' | 'staff' | 'paper';
+/** `faint` is for watermarks: light enough that notation printed over it stays readable. */
+export type InkColor = 'ink' | 'muted' | 'staff' | 'paper' | 'faint';
 export type FontKind = 'sans' | 'mono';
 
 export type PathCmd = ['M', number, number] | ['L', number, number] | ['C', number, number, number, number, number, number] | ['Z'];
@@ -25,6 +26,8 @@ export type Op =
       italic?: boolean;
       anchor: 'start' | 'middle' | 'end';
       c: InkColor;
+      /** Rotation in degrees, counter-clockwise around (x, y). */
+      angle?: number;
     };
 
 /** Approximate advance width used for layout. Mono is exact for Courier/JetBrains Mono (0.6em). */
@@ -77,7 +80,19 @@ export function opBounds(op: Op): Box {
     case 'text': {
       const w = textWidth(op.text, op.size, op.font, op.bold);
       const x = op.anchor === 'start' ? op.x : op.anchor === 'middle' ? op.x - w / 2 : op.x - w;
-      return { x, y: op.y - op.size * 0.8, w, h: op.size };
+      const box = { x, y: op.y - op.size * 0.8, w, h: op.size };
+      if (!op.angle) return box;
+      // Bounding box of the rotated rectangle.
+      const a = (-op.angle * Math.PI) / 180;
+      const corners = [
+        [box.x, box.y],
+        [box.x + w, box.y],
+        [box.x, box.y + box.h],
+        [box.x + w, box.y + box.h],
+      ].map(([px, py]) => [op.x + (px - op.x) * Math.cos(a) - (py - op.y) * Math.sin(a), op.y + (px - op.x) * Math.sin(a) + (py - op.y) * Math.cos(a)]);
+      const xs = corners.map((c) => c[0]);
+      const ys = corners.map((c) => c[1]);
+      return { x: Math.min(...xs), y: Math.min(...ys), w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) };
     }
   }
 }

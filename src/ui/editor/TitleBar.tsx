@@ -1,4 +1,4 @@
-import { ArrowClockwise, ArrowCounterClockwise, CheckCircle, CircleNotch, FilePdf, House, Keyboard, Metronome, Pause, Play, Repeat, Stop, WarningCircle } from '@phosphor-icons/react';
+import { ArrowClockwise, ArrowCounterClockwise, CheckCircle, CircleNotch, FilePdf, House, Keyboard, Metronome, Pause, Play, Repeat, SidebarSimple, Stop, WarningCircle } from '@phosphor-icons/react';
 import type { Song } from '../../model/types';
 import * as cmd from '../../editor/commands';
 import type { EditorAction } from '../../editor/editor';
@@ -24,6 +24,8 @@ interface Props {
   onToggle: () => void;
   onStop: () => void;
   onSettings: (p: Partial<PlaybackSettings>) => void;
+  panels: { left: boolean; right: boolean };
+  onPanel: (side: 'left' | 'right') => void;
 }
 
 /** Top bar of the editor: document identity on the left, transport in the middle, output on the right. */
@@ -86,6 +88,9 @@ export function TitleBar(p: Props) {
         <Button variant="ghost" icon={ArrowCounterClockwise} keepFocus disabled={!canUndo(history)} onClick={() => dispatch({ type: 'undo' })} tip={lastUndo ? `Undo ${lastUndo.label.toLowerCase()}` : 'Undo'} shortcut="Ctrl+Z" />
         <Button variant="ghost" icon={ArrowClockwise} keepFocus disabled={!canRedo(history)} onClick={() => dispatch({ type: 'redo' })} tip={lastRedo ? `Redo ${lastRedo.label.toLowerCase()}` : 'Redo'} shortcut="Ctrl+Shift+Z" />
         <Button variant="ghost" icon={Keyboard} keepFocus onClick={p.onShortcuts} tip="Keyboard shortcuts" shortcut="?" />
+        <Divider />
+        <Button variant="ghost" icon={SidebarSimple} keepFocus pressed={p.panels.left} onClick={() => p.onPanel('left')} tip={p.panels.left ? 'Hide tools panel' : 'Show tools panel'} shortcut="Ctrl+[" className="btn-subtle" />
+        <Button variant="ghost" icon={SidebarSimple} keepFocus pressed={p.panels.right} onClick={() => p.onPanel('right')} tip={p.panels.right ? 'Hide selection panel' : 'Show selection panel'} shortcut="Ctrl+]" className="btn-subtle [&>svg]:-scale-x-100" />
         <Divider />
         <Button variant="primary" icon={FilePdf} onClick={p.onExport} tip="Print preview and PDF download" shortcut="Ctrl+P">
           Export PDF

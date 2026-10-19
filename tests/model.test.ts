@@ -96,10 +96,15 @@ describe('beat operations', () => {
     expect(song.tracks[0].measures[0].beats[0].notes).toHaveLength(0);
   });
 
-  it('clears a beat into a rest', () => {
+  it('makes a written rest, and entering a note removes it', () => {
     let song = ops.setNote(createSong(), pos(0, 0, 0), 3);
-    song = ops.clearBeat(song, 0, 0, 0);
-    expect(song.tracks[0].measures[0].beats[0].notes).toEqual([]);
+    song = ops.setRest(song, 0, 0, 0, true);
+    expect(song.tracks[0].measures[0].beats[0]).toMatchObject({ notes: [], rest: true });
+    expect(ops.setRest(song, 0, 0, 0, true)).toBe(song);
+    song = ops.setNote(song, pos(0, 0, 2), 5);
+    expect(song.tracks[0].measures[0].beats[0].rest).toBeUndefined();
+    // New measures start as empty beats, not rests.
+    expect(createSong().tracks[0].measures[0].beats[0].rest).toBeUndefined();
   });
 });
 

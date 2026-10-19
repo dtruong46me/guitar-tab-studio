@@ -2,7 +2,7 @@
 import type { DurationValue } from '../model/types';
 import type { EditorAction } from './editor';
 
-export type AppCommand = 'save' | 'exportPdf' | 'help' | 'zoomIn' | 'zoomOut' | 'zoomReset' | 'playPause' | 'stop' | 'metronome';
+export type AppCommand = 'save' | 'exportPdf' | 'help' | 'zoomIn' | 'zoomOut' | 'zoomReset' | 'playPause' | 'stop' | 'metronome' | 'toggleLeft' | 'toggleRight' | 'songInfo';
 
 export type Intent = { kind: 'editor'; action: EditorAction } | { kind: 'app'; command: AppCommand };
 
@@ -36,6 +36,9 @@ export function keyToIntent(e: KeyInput, now = Date.now()): Intent | null {
     if (k === '=' || k === '+') return app('zoomIn');
     if (k === '-') return app('zoomOut');
     if (k === '0') return app('zoomReset');
+    if (k === '[') return app('toggleLeft');
+    if (k === ']') return app('toggleRight');
+    if (lower === 'i') return app('songInfo');
     if (k === 'Enter') return ed({ type: 'insertMeasure', after: !e.shiftKey });
     if (k === 'Delete' || k === 'Backspace') return ed({ type: 'deleteMeasure' });
     if (k === 'ArrowLeft') return ed(e.altKey ? { type: 'moveMeasure', dir: -1 } : { type: 'navigate', dir: 'prevMeasure' });
@@ -122,7 +125,7 @@ export const SHORTCUTS: { group: string; items: [keys: string, action: string][]
       ['0 - 9', 'Fret on the selected string'],
       ['1 then 2', 'Two quick digits: frets 10 to 30'],
       ['Delete', 'Delete note'],
-      ['R', 'Turn the beat into a rest'],
+      ['R', 'Rest on / off (clears the beat)'],
       ['Alt + Up / Down', 'Move note to another string (same pitch)'],
     ],
   },
@@ -188,6 +191,9 @@ export const SHORTCUTS: { group: string; items: [keys: string, action: string][]
       ['Ctrl + S', 'Save now (tabs also save automatically)'],
       ['Ctrl + P', 'Print preview & PDF'],
       ['Ctrl + = / - / 0', 'Zoom in / out / reset'],
+      ['Ctrl + [', 'Show / hide the tools panel'],
+      ['Ctrl + ]', 'Show / hide the selection panel'],
+      ['Ctrl + I', 'Song info (title, artist, composer...)'],
       ['?', 'Show this guide'],
     ],
   },

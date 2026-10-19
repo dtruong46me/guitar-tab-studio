@@ -10,6 +10,7 @@ const RGB: Record<InkColor, [number, number, number]> = {
   muted: [93, 100, 112],
   staff: [128, 135, 147],
   paper: [255, 255, 255],
+  faint: [227, 229, 233],
 };
 
 export function pagesToPdf(pages: Page[], song: Song, compress = true): jsPDF {
@@ -23,8 +24,8 @@ export function pagesToPdf(pages: Page[], song: Song, compress = true): jsPDF {
   });
   doc.setProperties({
     title: song.meta.title || 'Untitled',
-    author: song.meta.tabbedBy || song.meta.artist || '',
-    subject: song.meta.artist ? `${song.meta.title} — ${song.meta.artist}` : song.meta.title,
+    author: song.meta.composer || song.meta.artist || song.meta.tabbedBy || '',
+    subject: [song.meta.title, song.meta.subtitle, song.meta.artist].filter(Boolean).join(', '),
     creator: 'Guitar Tab Studio',
   });
   pages.forEach((page, i) => {
@@ -83,7 +84,9 @@ function drawOp(doc: jsPDF, op: Op) {
       doc.setFontSize(op.size);
       doc.setTextColor(r, g, b);
       const align = op.anchor === 'start' ? 'left' : op.anchor === 'middle' ? 'center' : 'right';
-      doc.text(op.text, op.x, op.y, { align, baseline: 'alphabetic' });
+      // jsPDF ignores `align` for rotated text, so rotated text is always drawn from its start.
+      if (op.angle) doc.text(op.text, op.x, op.y, { angle: op.angle, baseline: 'alphabetic' });
+      else doc.text(op.text, op.x, op.y, { align, baseline: 'alphabetic' });
       break;
     }
   }

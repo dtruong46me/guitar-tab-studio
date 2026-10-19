@@ -115,7 +115,8 @@ function drawMeasure(ops: Op[], song: Song, layout: TrackLayout, system: SystemL
   for (const bl of ml.beats) {
     const beat = measure.beats[bl.beat];
     if (beat.notes.length === 0) {
-      drawRest(ops, bl.x, midY, beat, u);
+      // Empty beats stay blank; only written rests get a symbol.
+      if (beat.rest) drawRest(ops, bl.x, midY, beat, u);
       continue;
     }
     const letters: string[] = [];

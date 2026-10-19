@@ -38,7 +38,7 @@ export const setBeatDuration = (pos: Position, d: Duration): Command => ({
   apply: (s) => ops.setBeatDuration(s, pos.track, pos.measure, pos.beat, d),
 });
 
-export const clearBeat = (pos: Position): Command => ({ label: 'Make rest', apply: (s) => ops.clearBeat(s, pos.track, pos.measure, pos.beat) });
+export const setRest = (pos: Position, rest: boolean): Command => ({ label: rest ? 'Make rest' : 'Remove rest', apply: (s) => ops.setRest(s, pos.track, pos.measure, pos.beat, rest) });
 
 export const insertBeat = (track: number, measure: number, index: number, d?: Duration): Command => ({
   label: 'Insert beat',

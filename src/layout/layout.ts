@@ -103,6 +103,7 @@ export interface TrackLayout {
 }
 
 const BASE_WIDTH: Record<number, number> = { 1: 58, 2: 42, 4: 30, 8: 23, 16: 19 };
+const BLANK_MEASURE_WIDTH = 110;
 
 export function noteLabel(fret: number, t: { dead?: boolean; ghost?: boolean; tie?: boolean; harmonic?: string }): string {
   if (t.dead) return 'x';
@@ -135,6 +136,14 @@ export function layoutTrack(song: Song, track: number, opts: LayoutOptions): Tra
   const natural = t.measures.map((measure, mi) => {
     const showTs = mi === 0 || !sameTimeSignature(sigs[mi], sigs[mi - 1]);
     const beatWidths = measure.beats.map((b) => beatMinWidth(b, m));
+    // A measure with nothing written yet gets the width of a comfortably filled one, so a blank tab
+    // reads as evenly ruled staff paper instead of narrow slivers.
+    const blank = measure.beats.every((b) => b.notes.length === 0 && !b.rest);
+    if (blank) {
+      const sum = beatWidths.reduce((a, b) => a + b, 0);
+      const target = BLANK_MEASURE_WIDTH * m.u;
+      if (sum < target) beatWidths.forEach((w, i) => (beatWidths[i] = (w / sum) * target));
+    }
     const fixed = m.padL + m.padR + (showTs ? m.timeSigW : 0);
     return { showTs, beatWidths, fixed, total: fixed + beatWidths.reduce((a, b) => a + b, 0) };
   });

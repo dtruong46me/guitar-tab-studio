@@ -1,6 +1,7 @@
 /** Local project persistence in IndexedDB. */
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 import type { Song } from '../model/types';
+import { emptyMeta } from '../model/factory';
 
 export interface ProjectSummary {
   id: string;
@@ -36,8 +37,14 @@ export async function saveProject(song: Song): Promise<Song> {
   return stored;
 }
 
+/** Projects saved by older versions lack newer metadata fields; fill them in on the way out. */
+function upgrade(song: Song): Song {
+  return { ...song, meta: { ...emptyMeta(song.meta?.title), ...song.meta } };
+}
+
 export async function loadProject(id: string): Promise<Song | undefined> {
-  return (await db()).get('projects', id);
+  const song = await (await db()).get('projects', id);
+  return song && upgrade(song);
 }
 
 export async function deleteProject(id: string): Promise<void> {
@@ -47,7 +54,7 @@ export async function deleteProject(id: string): Promise<void> {
 /** All saved songs, most recently edited first (the home screen renders previews from them). */
 export async function listSongs(): Promise<Song[]> {
   const all = await (await db()).getAll('projects');
-  return all.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  return all.map(upgrade).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 }
 
 export async function listProjects(): Promise<ProjectSummary[]> {

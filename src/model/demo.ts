@@ -12,6 +12,7 @@ export function buildSong(title: string, measures: BeatSpec[][]): Song {
     beats.forEach(([value, notes, dotted], bi) => {
       if (bi > 0) song = ops.insertBeat(song, 0, mi, bi);
       song = ops.setBeatDuration(song, 0, mi, bi, { value, dotted: !!dotted });
+      if (notes.length === 0) song = ops.setRest(song, 0, mi, bi, true);
       for (const [string, fret, techniques] of notes) {
         const pos = { track: 0, measure: mi, beat: bi, string };
         song = ops.setNote(song, pos, fret);
@@ -30,6 +31,6 @@ export function createDemoSong(): Song {
     [[4, [[4, 0, { letRing: true }], [3, 2, { letRing: true }], [2, 2, { letRing: true }], [1, 1, { letRing: true }], [0, 0, { letRing: true }]]], [4, [[2, 2, { letRing: true }]]], [4, []], [16, [[1, 12, { harmonic: 'natural' }]]], [16, [[2, 12, { harmonic: 'natural' }]]], [16, [[1, 3, { ghost: true }]]], [16, [[0, 3, { vibrato: true }]]]],
     [[2, [[5, 0], [4, 2], [3, 2]]], [4, [[5, 3, { dead: true }]]], [4, [[0, 12, { tapped: true, legato: true }]]]],
   ]);
-  song = ops.setMeta(song, { artist: 'Guitar Tab Studio', tabbedBy: 'Example' });
+  song = ops.setMeta(song, { artist: 'Guitar Tab Studio', composer: 'Example', tabbedBy: 'Example' });
   return song;
 }

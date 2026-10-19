@@ -1,4 +1,4 @@
-import type { Beat, Duration, Instrument, Measure, Song, Track } from './types';
+import type { Beat, Duration, Instrument, Measure, Song, SongMeta, Track } from './types';
 import { SCHEMA_VERSION } from './types';
 import { STANDARD_TUNING } from './tuning';
 
@@ -15,7 +15,7 @@ export function createBeat(duration: Duration = { value: 4, dotted: false }): Be
   return { id: newId(), duration: { ...duration }, notes: [] };
 }
 
-/** A new measure holds a single empty (rest) beat, so it can be navigated and edited. */
+/** A new measure holds a single empty beat, so it can be navigated and edited. */
 export function createMeasure(duration?: Duration): Measure {
   return { id: newId(), beats: [createBeat(duration)] };
 }
@@ -33,12 +33,16 @@ export function createTrack(name: string, measureCount: number, instrument: Inst
   };
 }
 
+export function emptyMeta(title = 'Untitled'): SongMeta {
+  return { title, subtitle: '', artist: '', album: '', composer: '', lyricist: '', arranger: '', tabbedBy: '', copyright: '', watermark: '' };
+}
+
 export function createSong(title = 'Untitled', measureCount = 4): Song {
   const now = new Date().toISOString();
   return {
     schemaVersion: SCHEMA_VERSION,
     id: newId(),
-    meta: { title, artist: '', album: '', tabbedBy: '' },
+    meta: emptyMeta(title),
     tempo: 120,
     timeSignature: { numerator: 4, denominator: 4 },
     keySignature: 'C',
@@ -67,5 +71,5 @@ export function cloneSongWithNewIds(song: Song): Song {
 }
 
 export function cloneBeat(beat: Beat): Beat {
-  return { id: newId(), duration: { ...beat.duration }, notes: beat.notes.map((n) => ({ ...n, techniques: { ...n.techniques } })) };
+  return { id: newId(), duration: { ...beat.duration }, notes: beat.notes.map((n) => ({ ...n, techniques: { ...n.techniques } })), ...(beat.rest ? { rest: true } : {}) };
 }
