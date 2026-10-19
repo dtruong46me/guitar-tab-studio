@@ -34,11 +34,32 @@ describe('playback schedule', () => {
     expect(six.clicks.map((c) => c.time)).toEqual([0, 0.75]);
   });
 
-  it('cuts a ringing note when the string is played again, unless it is let ring', () => {
+  it('cuts a ringing note when the string is played again, even a let ring one', () => {
     const song = buildSong('t', [[[4, [[0, 0]]], [4, [[0, 2]]], [4, [[1, 0, { letRing: true }]]], [4, [[1, 1]]]]]);
     const s = buildSchedule(song, opts);
     expect(s.events[0].duration).toBeCloseTo(0.5);
-    expect(s.events[2].duration).toBeGreaterThan(1);
+    expect(s.events[2].duration).toBeCloseTo(0.5);
+  });
+
+  it('lets a let ring note sound over other strings until a dead note mutes its string', () => {
+    const ring = { letRing: true };
+    const song = buildSong('t', [[[4, [[5, 3, ring]]], [4, [[2, 0, ring]]], [4, [[4, 0, { dead: true }], [5, 0, { dead: true }]]], [4, [[1, 1, ring]]]]]);
+    const [bass, inner] = buildSchedule(song, opts).events;
+    // The slap is percussion, not the end of the let ring: the G string keeps sounding.
+    expect(inner.duration).toBeGreaterThan(1);
+    // Rings through beat 2 and stops on the slap at beat 3.
+    expect(bass.duration).toBeCloseTo(1);
+  });
+
+  it('stops let ring notes where the let ring ends', () => {
+    const ring = { letRing: true };
+    const song = buildSong('t', [[[4, [[5, 3, ring]]], [4, [[2, 0, ring]]], [4, [[1, 1]]], [4, [[0, 0, ring]]]]]);
+    const [bass, inner, plain, last] = buildSchedule(song, opts).events;
+    // Beat 3 is played without let ring: everything still ringing stops there.
+    expect(bass.duration).toBeCloseTo(1);
+    expect(inner.duration).toBeCloseTo(0.5);
+    expect(plain.duration).toBeCloseTo(0.5);
+    expect(last.duration).toBeGreaterThan(1);
   });
 
   it('extends tied notes instead of re-attacking', () => {

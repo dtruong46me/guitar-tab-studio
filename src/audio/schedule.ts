@@ -113,6 +113,8 @@ export function buildSchedule(song: Song, opts: ScheduleOptions): Schedule {
     const { tuning, capo } = track.instrument;
     // Last event per string, to extend ties, cut notes and apply legato.
     const lastOnString = new Map<number, { ev: NoteEvent; note: Note }>();
+    // Let ring notes still sounding; the let ring ends (and they stop) at a beat played without it.
+    let ringing: NoteEvent[] = [];
     // Dynamics carry forward from their marking; earlier measures set the level when starting mid-song.
     let level = 1;
     for (let m = 0; m < start; m++) for (const b of track.measures[m].beats) if (b.dynamic) level = DYNAMIC_GAIN[b.dynamic];
@@ -127,6 +129,11 @@ export function buildSchedule(song: Song, opts: ScheduleOptions): Schedule {
         if (ti === opts.cursorTrack) beats.push({ time, measure: m, beat: bi });
         if (beat.dynamic) level = DYNAMIC_GAIN[beat.dynamic];
         // Strums spread the attack across the strings: down = low to high, up = high to low.
+        const plucked = beat.notes.filter((n) => !n.techniques.dead);
+        if (plucked.length && plucked.every((n) => !n.techniques.letRing)) {
+          for (const ev of ringing) ev.duration = Math.min(ev.duration, Math.max(0.02, time - ev.time));
+          ringing = [];
+        }
         const order = [...beat.notes].sort((a, b) => (beat.stroke === 'up' ? a.string - b.string : b.string - a.string));
 
         for (const note of beat.notes) {
@@ -142,8 +149,9 @@ export function buildSchedule(song: Song, opts: ScheduleOptions): Schedule {
           // Legato only connects notes that follow each other directly on the string.
           const adjacent = !!prev && prev.ev.time + prev.ev.duration >= time - 0.05;
           const legatoFromPrev = adjacent && !!(prev.note.techniques.legato || prev.note.techniques.slide === 'legato');
-          // A new note on the string stops the previous one unless it rings over.
-          if (prev && !prev.note.techniques.letRing) prev.ev.duration = Math.min(prev.ev.duration, Math.max(0.02, time - prev.ev.time));
+          // A string sounds one note at a time: playing it again (a dead note too) stops the previous
+          // note, even one that is let ring. Let ring only keeps a note sounding while other strings play.
+          if (prev) prev.ev.duration = Math.min(prev.ev.duration, Math.max(0.02, time - prev.ev.time));
 
           let timbre: Timbre = 'pluck';
           let eventMidi = midi;
@@ -179,6 +187,7 @@ export function buildSchedule(song: Song, opts: ScheduleOptions): Schedule {
             track: ti,
             string: note.string,
           };
+          if (tech.letRing) ringing.push(ev);
           if (tech.grace !== undefined) ev.gain *= 0.8;
           if (tech.bend) {
             const cents = tech.bend * 100;

@@ -152,3 +152,16 @@ describe('keymap', () => {
     expect(key('F5')).toBeNull();
   });
 });
+
+describe('beat techniques', () => {
+  it('toggles let ring on every note of the beat with Shift + L, leaving dead notes alone', () => {
+    let s = run(createEditorState(createSong()), { type: 'digit', digit: 3, now: 0 }, { type: 'navigate', dir: 'down' }, { type: 'digit', digit: 2, now: 5000 }, { type: 'navigate', dir: 'down' }, { type: 'toggleTechnique', key: 'dead' });
+    const intent = keyToIntent({ key: 'L', code: 'KeyL', shiftKey: true, ctrlKey: false, metaKey: false, altKey: false });
+    expect(intent).toEqual({ kind: 'editor', action: { type: 'toggleBeatTechnique', key: 'letRing' } });
+    s = run(s, { type: 'toggleBeatTechnique', key: 'letRing' });
+    expect(notesAt(s, 0, 0).map((n) => !!n.techniques.letRing)).toEqual([true, true, false]);
+    expect(s.history.past.length).toBe(4);
+    s = run(s, { type: 'toggleBeatTechnique', key: 'letRing' });
+    expect(notesAt(s, 0, 0).every((n) => !n.techniques.letRing)).toBe(true);
+  });
+});
