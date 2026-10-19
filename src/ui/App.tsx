@@ -25,7 +25,8 @@ export function App() {
   const notify = useCallback((text: string, tone: 'info' | 'error' = 'info') => setToast({ text, tone, id: Date.now() }), []);
   useEffect(() => {
     if (!toast) return;
-    const t = setTimeout(() => setToast(null), 3200);
+    // Longer messages stay up long enough to read.
+    const t = setTimeout(() => setToast(null), Math.max(3200, toast.text.length * 55));
     return () => clearTimeout(t);
   }, [toast]);
 

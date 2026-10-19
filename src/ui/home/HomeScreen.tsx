@@ -44,8 +44,32 @@ export function HomeScreen({ onOpen, onCreate, notify, theme, onTheme }: Props) 
     return sort === 'title' ? [...list].sort((a, b) => (a.meta.title || 'Untitled').localeCompare(b.meta.title || 'Untitled')) : list;
   }, [songs, query, sort]);
 
+  const [importing, setImporting] = useState(false);
+
+  /** Reads tab notation out of a PDF (Guitar Pro, MuseScore, this app...) into a new tab. */
+  const importPdf = async (file: File) => {
+    setImporting(true);
+    try {
+      const { importTabPdf } = await import('../../io/pdfTab/importPdf');
+      const { song, report } = await importTabPdf(file);
+      await saveProject(song);
+      const notes = [
+        `Imported "${song.meta.title}": ${report.measures} measures, ${report.notes} notes.`,
+        'Rhythms are estimated from note spacing; check them while listening.',
+        ...report.warnings,
+      ];
+      notify(notes.join(' '));
+      onOpen(song);
+    } catch (e) {
+      notify(`PDF import failed: ${e instanceof Error ? e.message : String(e)}`, 'error');
+    } finally {
+      setImporting(false);
+    }
+  };
+
   const importFile = async (file: File) => {
-    if (file.size > 20 * 1024 * 1024) return notify('That file is too large to be a tab project.', 'error');
+    if (file.size > 30 * 1024 * 1024) return notify('That file is too large to import.', 'error');
+    if (/\.pdf$/i.test(file.name) || file.type === 'application/pdf') return importPdf(file);
     const result = parseProject(await file.text());
     if (!result.ok) return notify(`Import failed: ${result.error}`, 'error');
     const song = cloneSongWithNewIds(result.song);
@@ -93,7 +117,7 @@ export function HomeScreen({ onOpen, onCreate, notify, theme, onTheme }: Props) 
         <input
           ref={fileRef}
           type="file"
-          accept=".json,application/json"
+          accept=".json,application/json,.pdf,application/pdf"
           className="hidden"
           onChange={(e) => {
             const f = e.target.files?.[0];
@@ -101,8 +125,8 @@ export function HomeScreen({ onOpen, onCreate, notify, theme, onTheme }: Props) 
             if (f) void importFile(f);
           }}
         />
-        <Button icon={UploadSimple} onClick={() => fileRef.current?.click()} tip="Open a tab from a .json project file">
-          Import
+        <Button icon={UploadSimple} disabled={importing} onClick={() => fileRef.current?.click()} tip="Import a tab PDF (Guitar Pro, MuseScore...) or a .json project file">
+          {importing ? 'Reading PDF...' : 'Import'}
         </Button>
         <Button variant="ghost" icon={theme === 'studio' ? Sun : Moon} tip={theme === 'studio' ? 'Light theme' : 'Dark theme'} onClick={() => onTheme(theme === 'studio' ? 'paper' : 'studio')} />
       </header>
@@ -249,7 +273,7 @@ function EmptyState({ searching, onNew, onImport }: { searching: boolean; onNew:
       <Guitar size={32} className="text-muted" aria-hidden />
       <div>
         <p className="text-sm font-medium">No saved tabs yet</p>
-        <p className="text-xs text-muted mt-1">Tabs save automatically as you write. Start one above or import a project file.</p>
+        <p className="text-xs text-muted mt-1">Tabs save automatically as you write. Start one above, or import a tab PDF or project file.</p>
       </div>
       <div className="flex gap-2">
         <Button variant="primary" icon={Plus} onClick={onNew}>

@@ -201,7 +201,7 @@ export function Menu({
 /** Toast shown at the bottom centre. */
 export function Toast({ text, tone }: { text: string; tone: 'info' | 'error' }) {
   return (
-    <div role="status" className={`fixed bottom-12 left-1/2 -translate-x-1/2 z-[60] px-3 py-2 rounded-md border text-[13px] shadow-lg bg-bg200 toast-in ${tone === 'error' ? 'border-danger text-danger' : 'border-line text-ink'}`}>
+    <div role="status" className={`fixed bottom-12 left-1/2 -translate-x-1/2 z-[60] w-max max-w-[min(560px,90vw)] px-3 py-2 rounded-md border text-[13px] shadow-lg bg-bg200 toast-in ${tone === 'error' ? 'border-danger text-danger' : 'border-line text-ink'}`}>
       {text}
     </div>
   );
