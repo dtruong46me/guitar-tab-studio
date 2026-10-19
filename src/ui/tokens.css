@@ -1,0 +1,63 @@
+/* Guitar Tab Studio design-system tokens (studio = dark, paper = light). */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root, [data-theme="studio"] {
+  --bg-0: #0e1014; --bg-100: #15181e; --bg-200: #1c2028; --bg-300: #252a34; --line: #323844;
+  --ink: #e9ebef; --ink-muted: #9aa2b1;
+  --accent: #f0a53a; --accent-ink: #1d1204; --accent-text: #f5b860;
+  --cursor: #4cc3e8; --cursor-wash: #4cc3e82e; --playhead: #f0a53a;
+  --sheet: #fbfaf7; --staff-line: #9097a3; --notation-ink: #15171b; --notation-muted: #5d6470;
+  --danger: #f07a72; --success: #6fd09a;
+  --shadow-sheet: 0 1px 2px rgba(0,0,0,0.5), 0 8px 24px rgba(0,0,0,0.35);
+  color-scheme: dark;
+}
+[data-theme="paper"] {
+  --bg-0: #ecebe6; --bg-100: #f6f5f1; --bg-200: #ffffff; --bg-300: #e4e2dc; --line: #cfccc4;
+  --ink: #1a1c20; --ink-muted: #575d69;
+  --accent: #e3921f; --accent-ink: #1d1204; --accent-text: #8f5300;
+  --cursor: #0b7fa6; --cursor-wash: #0b7fa61f; --playhead: #d07f0c;
+  --sheet: #ffffff;
+  --danger: #b3261e; --success: #1e7a47;
+  --shadow-sheet: 0 1px 2px rgba(0,0,0,0.12), 0 6px 18px rgba(0,0,0,0.08);
+  color-scheme: light;
+}
+
+html, body, #root { height: 100%; }
+body {
+  margin: 0; background: var(--bg-0); color: var(--ink);
+  font: 400 13px/20px Inter, "Segoe UI", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center gap-1 h-7 px-2 rounded-md border border-line bg-bg200 text-ink text-xs font-medium whitespace-nowrap;
+  }
+  .btn:hover:not(:disabled) { background: var(--bg-300); }
+  .btn:disabled { opacity: .45; cursor: default; }
+  .btn-primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+  .btn-primary:hover:not(:disabled) { background: var(--accent-text); }
+  .btn-ghost { background: transparent; border-color: transparent; }
+  .btn-danger { background: transparent; color: var(--danger); border-color: var(--danger); }
+  .btn-icon { @apply w-7 px-0 justify-center; }
+  .btn svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+  .btn[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+
+  .field {
+    @apply h-7 px-2 rounded-md border border-line bg-bg200 text-ink text-[13px] min-w-0;
+  }
+  .field:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  .label { @apply text-xs font-medium text-muted; }
+  .heading { @apply text-[11px] font-semibold tracking-[0.06em] uppercase text-muted; }
+  .kbd { @apply inline-block min-w-4 px-1 rounded-sm border border-line bg-bg100 text-muted font-mono text-[10px] leading-4 text-center; }
+  .seg { @apply inline-flex p-0.5 gap-0.5 rounded-md border border-line bg-bg200; }
+  .seg > button { @apply h-6 min-w-7 px-1.5 rounded text-muted font-mono text-xs font-semibold; }
+  .seg > button:hover:not(:disabled) { color: var(--ink); background: var(--bg-300); }
+  .seg > button[aria-pressed="true"] { color: var(--accent-ink); background: var(--accent); }
+  .seg > button:disabled { opacity: .4; }
+}
+
+:where(:focus-visible) { outline: 2px solid var(--accent); outline-offset: 1px; }
+::selection { background: var(--cursor-wash); }
