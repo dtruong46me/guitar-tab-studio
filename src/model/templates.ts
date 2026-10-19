@@ -2,6 +2,7 @@
 import type { Song } from './types';
 import { createSong, cloneSongWithNewIds } from './factory';
 import { createDemoSong } from './demo';
+import { createNoiNayCoAnh } from './examples/noiNayCoAnh';
 import * as ops from './operations';
 import { TUNING_PRESETS } from './tuning';
 
@@ -30,5 +31,6 @@ export const TEMPLATES: Template[] = [
   },
   { id: 'drop-d', name: 'Drop D', description: '4/4, low string to D', create: () => ops.setTuning(createSong('Untitled', 8), 0, tuning('drop-d')) },
   { id: 'seven', name: '7-string', description: 'Standard with low B', create: () => ops.setTuning(createSong('Untitled', 8), 0, tuning('standard-7')) },
-  { id: 'example', name: 'Example song', description: 'Shows every technique', create: () => cloneSongWithNewIds(createDemoSong()) },
+  { id: 'noi-nay-co-anh', name: 'Nơi Này Có Anh', description: 'Example: chords, let ring, slaps', create: () => cloneSongWithNewIds(createNoiNayCoAnh()) },
+  { id: 'example', name: 'Technique showcase', description: 'Example: every technique', create: () => cloneSongWithNewIds(createDemoSong()) },
 ];

@@ -2,7 +2,7 @@
 import type { DurationValue } from '../model/types';
 import type { EditorAction } from './editor';
 
-export type AppCommand = 'save' | 'exportPdf' | 'help' | 'zoomIn' | 'zoomOut' | 'zoomReset' | 'playPause' | 'stop' | 'metronome' | 'toggleLeft' | 'toggleRight' | 'songInfo';
+export type AppCommand = 'save' | 'exportPdf' | 'help' | 'zoomIn' | 'zoomOut' | 'zoomReset' | 'playPause' | 'stop' | 'metronome' | 'toggleLeft' | 'toggleRight' | 'songInfo' | 'chord';
 
 export type Intent = { kind: 'editor'; action: EditorAction } | { kind: 'app'; command: AppCommand };
 
@@ -113,6 +113,14 @@ export function keyToIntent(e: KeyInput, now = Date.now()): Intent | null {
       return ed({ type: 'setTechnique', key: 'bend', value: 2 });
     case 'm':
       return app('metronome');
+    case 'c':
+      return app('chord');
+    case 'a':
+      return ed({ type: 'setTechnique', key: 'accent', value: e.shiftKey ? 'heavy' : 'normal' });
+    case 'u':
+      return ed({ type: 'toggleStroke', dir: 'up' });
+    case 'd':
+      return ed({ type: 'toggleStroke', dir: 'down' });
   }
   return null;
 }
@@ -163,8 +171,17 @@ export const SHORTCUTS: { group: string; items: [keys: string, action: string][]
       ['N', 'Natural harmonic'],
       ['T', 'Tap'],
       ['G', 'Ghost note'],
-      ['X', 'Dead note'],
       ['Shift + T', 'Tie to previous note'],
+      ['A', 'Accent (Shift + A: heavy accent)'],
+    ],
+  },
+  {
+    group: 'Chords & strumming',
+    items: [
+      ['C', 'Chord name above the beat'],
+      ['D', 'Strum down'],
+      ['U', 'Strum up'],
+      ['X', 'Dead note / string hit (works on an empty string too)'],
     ],
   },
   {

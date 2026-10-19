@@ -62,7 +62,7 @@ describe('IndexedDB storage', () => {
     await new Promise((r) => setTimeout(r, 5));
     await saveProject(b);
     const list = await listProjects();
-    expect(list.map((p) => p.title)).toEqual(['Second', 'Getting Started']);
+    expect(list.map((p) => p.title)).toEqual(['Second', 'Technique Showcase']);
     const loaded = await loadProject(a.id);
     expect(loaded?.tracks).toEqual(a.tracks);
     await deleteProject(a.id);

@@ -2,7 +2,8 @@
  * Editor state machine: the song, cursor, history and input state, driven by high-level actions.
  * Pure and framework-free so it can be unit tested; the UI wires it to React with useReducer.
  */
-import type { Beat, Duration, DurationValue, NoteTechniques, Position, Song } from '../model/types';
+import type { Beat, Duration, DurationValue, NoteTechniques, Position, Song, Stroke } from '../model/types';
+import type { BeatProps } from '../model/operations';
 import { durationTicks, effectiveTimeSignatures, measureCapacity, stepDuration } from '../model/duration';
 import { findNote } from '../model/operations';
 import { MAX_FRET } from '../model/tuning';
@@ -32,7 +33,7 @@ export interface EditorState {
 
 export type NavDir = 'left' | 'right' | 'up' | 'down' | 'nextMeasure' | 'prevMeasure' | 'measureStart' | 'measureEnd' | 'songStart' | 'songEnd';
 
-export type BooleanTechnique = 'legato' | 'vibrato' | 'palmMute' | 'letRing' | 'tapped' | 'ghost' | 'tie' | 'dead';
+export type BooleanTechnique = 'legato' | 'vibrato' | 'palmMute' | 'letRing' | 'tapped' | 'ghost' | 'tie' | 'dead' | 'slap' | 'pop' | 'staccato' | 'tremolo' | 'fadeIn' | 'prebend';
 
 export type EditorAction =
   | { type: 'load'; song: Song; saved: boolean }
@@ -51,6 +52,8 @@ export type EditorAction =
   | { type: 'stepDuration'; dir: 1 | -1 }
   | { type: 'toggleDot' }
   | { type: 'toggleTechnique'; key: BooleanTechnique }
+  | { type: 'toggleStroke'; dir: Stroke }
+  | { type: 'setBeatProps'; patch: Partial<BeatProps> }
   | { type: 'setTechnique'; key: keyof NoteTechniques; value: NoteTechniques[keyof NoteTechniques] | undefined }
   | { type: 'moveBeat'; dir: -1 | 1 }
   | { type: 'moveNoteString'; dir: -1 | 1 }
@@ -239,6 +242,8 @@ export function editorReducer(s: EditorState, a: EditorAction): EditorState {
     }
     case 'toggleTechnique': {
       const note = findNote(s.song, c);
+      // A dead note needs no fret: X on an empty string writes one directly (percussive hits).
+      if (a.key === 'dead' && !note) return exec(s, cmd.setDeadNote(c));
       if (!note) return { ...s, status: 'Select a note to apply a technique.' };
       return exec(s, cmd.setTechnique(c, a.key, note.techniques[a.key] ? undefined : true));
     }
@@ -249,6 +254,12 @@ export function editorReducer(s: EditorState, a: EditorAction): EditorState {
       const value = note.techniques[a.key] === a.value ? undefined : a.value;
       return exec(s, cmd.setTechnique(c, a.key, value as never));
     }
+    case 'toggleStroke': {
+      const b = currentBeat(s);
+      return exec(s, cmd.setBeatProps(c, { stroke: b.stroke === a.dir ? undefined : a.dir }));
+    }
+    case 'setBeatProps':
+      return exec(s, cmd.setBeatProps(c, a.patch));
     case 'moveBeat':
       return exec(s, cmd.moveBeat(c, c.beat + a.dir), { ...c, beat: c.beat + a.dir });
     case 'moveNoteString': {

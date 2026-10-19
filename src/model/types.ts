@@ -20,7 +20,12 @@ export interface TimeSignature {
 }
 
 export type SlideType = 'up' | 'down' | 'legato';
-export type HarmonicType = 'natural' | 'artificial';
+/** Natural, artificial (A.H.), pinch (P.H.) or tapped (T.H.) harmonic. */
+export type HarmonicType = 'natural' | 'artificial' | 'pinch' | 'tapped';
+export type Dynamic = 'pp' | 'p' | 'mp' | 'mf' | 'f' | 'ff';
+export const DYNAMICS: readonly Dynamic[] = ['pp', 'p', 'mp', 'mf', 'f', 'ff'];
+/** Strum direction for the whole beat: down = low to high strings, up = high to low. */
+export type Stroke = 'down' | 'up';
 
 /** Guitar techniques applied to a single note. All optional; absent means off. */
 export interface NoteTechniques {
@@ -31,6 +36,8 @@ export interface NoteTechniques {
   bend?: number;
   /** Return to pitch after the bend. */
   bendRelease?: boolean;
+  /** The string is bent before it is picked (the note starts at the bent pitch). */
+  prebend?: boolean;
   vibrato?: boolean;
   palmMute?: boolean;
   letRing?: boolean;
@@ -39,8 +46,21 @@ export interface NoteTechniques {
   ghost?: boolean;
   /** Tied to the previous note on the same string (no re-attack). */
   tie?: boolean;
-  /** Muted / dead note, written as "x". */
+  /** Muted / dead note, written as "x" (also used for percussive slaps on the strings). */
   dead?: boolean;
+  /** Bass-style slap (S) and pop (P). */
+  slap?: boolean;
+  pop?: boolean;
+  accent?: 'normal' | 'heavy';
+  staccato?: boolean;
+  /** Fret of a grace note played just before this note. */
+  grace?: number;
+  /** Fret alternated with this note in a trill. */
+  trill?: number;
+  /** Tremolo picking: the note is re-picked rapidly for its whole duration. */
+  tremolo?: boolean;
+  /** Volume swell into the note. */
+  fadeIn?: boolean;
 }
 
 export interface Note {
@@ -60,6 +80,13 @@ export interface Beat {
   notes: Note[];
   /** Written rest (set explicitly by the user). */
   rest?: boolean;
+  /** Chord name shown above the staff from this beat, e.g. "Am7". */
+  chord?: string;
+  /** Free text above the staff, e.g. a section name ("Intro", "Chorus"). */
+  text?: string;
+  stroke?: Stroke;
+  /** Dynamic marking; applies from this beat until the next marking. */
+  dynamic?: Dynamic;
 }
 
 export interface Measure {

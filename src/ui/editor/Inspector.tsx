@@ -12,6 +12,15 @@ import { parseTs, TIME_SIGNATURES, tsKey } from './constants';
 import { PanelSection } from './PanelSection';
 
 const TECHNIQUE_NAMES: Record<string, string> = {
+  prebend: 'pre-bend',
+  slap: 'slap',
+  pop: 'pop',
+  accent: 'accent',
+  staccato: 'staccato',
+  grace: 'grace note',
+  trill: 'trill',
+  tremolo: 'tremolo',
+  fadeIn: 'fade in',
   legato: 'hammer/pull',
   slide: 'slide',
   bend: 'bend',
@@ -70,6 +79,22 @@ export function Inspector({ song, cursor, dispatch, collapsed, onToggle }: Props
           <p className="text-[11px] text-muted mt-2 leading-4">
             {note ? (techniques.length ? `Techniques: ${techniques.join(', ')}` : 'No techniques. Pick them in the Tools panel.') : 'No note here. Type a fret number or click one in the Tools panel.'}
           </p>
+          {note && (note.techniques.grace !== undefined || note.techniques.trill !== undefined) && (
+            <div className="flex items-center gap-3 mt-2">
+              {note.techniques.grace !== undefined && (
+                <label className="flex items-center gap-1.5">
+                  <span className="label">Grace fret</span>
+                  <NumberField className="field w-12 font-mono" value={note.techniques.grace} min={0} max={MAX_FRET} onCommit={(v) => dispatch({ type: 'exec', command: cmd.setTechnique(cursor, 'grace', v) })} ariaLabel="Grace note fret" />
+                </label>
+              )}
+              {note.techniques.trill !== undefined && (
+                <label className="flex items-center gap-1.5">
+                  <span className="label">Trill fret</span>
+                  <NumberField className="field w-12 font-mono" value={note.techniques.trill} min={0} max={MAX_FRET} onCommit={(v) => dispatch({ type: 'exec', command: cmd.setTechnique(cursor, 'trill', v) })} ariaLabel="Trill fret" />
+                </label>
+              )}
+            </div>
+          )}
         </PanelSection>
 
         <PanelSection id="i-beat" title={`Beat ${cursor.beat + 1}`} meta={beat.rest ? 'rest' : `${beat.notes.length} note${beat.notes.length === 1 ? '' : 's'}`} collapsed={collapsed.includes('i-beat')} onToggle={() => onToggle('i-beat')}>
@@ -78,6 +103,30 @@ export function Inspector({ song, cursor, dispatch, collapsed, onToggle }: Props
             {beat.rest ? ' rest' : ''}
           </p>
           <p className="text-[11px] text-muted mt-1 leading-4">{beat.notes.length === 0 && !beat.rest ? 'Empty beats print as blank space. Press R for a written rest.' : `Beat ${cursor.beat + 1} of ${track.measures[cursor.measure].beats.length} in this measure.`}</p>
+          <div className="grid grid-cols-[auto_1fr] items-center gap-x-2 gap-y-1.5 mt-2">
+            <span className="label">Chord</span>
+            <input
+              className="field h-7 font-semibold"
+              value={beat.chord ?? ''}
+              maxLength={16}
+              placeholder="e.g. Am7"
+              onChange={(e) => dispatch({ type: 'setBeatProps', patch: { chord: e.target.value } })}
+              onBlur={(e) => e.target.value !== e.target.value.trim() && dispatch({ type: 'setBeatProps', patch: { chord: e.target.value.trim() } })}
+              aria-label="Chord name"
+            />
+            <span className="label">Text</span>
+            <input
+              className="field h-7"
+              value={beat.text ?? ''}
+              maxLength={40}
+              placeholder="e.g. Chorus"
+              onChange={(e) => dispatch({ type: 'setBeatProps', patch: { text: e.target.value } })}
+              aria-label="Text above the staff"
+            />
+          </div>
+          {(beat.stroke || beat.dynamic) && (
+            <p className="text-[11px] text-muted mt-1.5">{[beat.stroke && `Strum ${beat.stroke}`, beat.dynamic && `Dynamics ${beat.dynamic}`].filter(Boolean).join(', ')}</p>
+          )}
         </PanelSection>
 
         <PanelSection id="i-measure" title={`Measure ${cursor.measure + 1}`} meta={`${tsKey(ts)}, ${fillText.toLowerCase()}`} collapsed={collapsed.includes('i-measure')} onToggle={() => onToggle('i-measure')}>

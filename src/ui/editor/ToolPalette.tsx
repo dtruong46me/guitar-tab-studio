@@ -4,7 +4,7 @@
  */
 import { useState } from 'react';
 import { ArrowCounterClockwise, Check, SlidersHorizontal } from '@phosphor-icons/react';
-import type { DurationValue, NoteTechniques, Position, Song } from '../../model/types';
+import type { Dynamic, DurationValue, NoteTechniques, Position, Song } from '../../model/types';
 import { durationName } from '../../model/duration';
 import { findNote } from '../../model/operations';
 import { pitchClass } from '../../model/tuning';
@@ -17,11 +17,15 @@ import type { ToolSection, usePanelPrefs } from './panelPrefs';
 const TITLES: Record<ToolSection, string> = {
   frets: 'Fret',
   duration: 'Duration',
+  chord: 'Chords & strumming',
   connect: 'Legato & slides',
   bend: 'Bend',
   expression: 'Expression',
+  articulation: 'Articulation',
   beat: 'Beat',
 };
+
+const DYNAMIC_OPTIONS: Dynamic[] = ['pp', 'p', 'mp', 'mf', 'f', 'ff'];
 
 const DURATIONS: { value: DurationValue; label: string; key: string }[] = [
   { value: 1, label: '1', key: 'Shift+1' },
@@ -36,9 +40,10 @@ interface Props {
   cursor: Position;
   dispatch: (a: EditorAction) => void;
   panel: ReturnType<typeof usePanelPrefs>;
+  onChord: () => void;
 }
 
-export function ToolPalette({ song, cursor, dispatch, panel }: Props) {
+export function ToolPalette({ song, cursor, dispatch, panel, onChord }: Props) {
   const [customizing, setCustomizing] = useState(false);
   const { prefs } = panel;
   const track = song.tracks[cursor.track];
@@ -69,7 +74,7 @@ export function ToolPalette({ song, cursor, dispatch, panel }: Props) {
           ))}
         </div>
         <div className="grid grid-cols-2 gap-1 mt-1">
-          <ToolButton label="Dead (x)" shortcut="X" tip="Dead (muted) note" pressed={!!tech.dead} disabled={noNote} onClick={() => toggle('dead')} />
+          <ToolButton label="Dead (x)" shortcut="X" tip="Dead note or percussive string hit. Works on an empty string." pressed={!!tech.dead} onClick={() => toggle('dead')} />
           <ToolButton label="Delete" shortcut="Del" tip="Delete note" disabled={noNote} onClick={() => dispatch({ type: 'deleteNote' })} />
         </div>
       </>
@@ -98,6 +103,39 @@ export function ToolPalette({ song, cursor, dispatch, panel }: Props) {
         </div>
       </>
     ),
+    chord: (
+      <div className="flex flex-col gap-1.5">
+        <div className="grid grid-cols-2 gap-1">
+          <ToolButton label={beat.chord ? `Chord: ${beat.chord}` : 'Add chord'} shortcut="C" tip="Chord name above this beat" pressed={!!beat.chord} onClick={onChord} className="col-span-2" />
+          <ToolButton label="Strum down" shortcut="D" tip="Downstroke: low to high strings" pressed={beat.stroke === 'down'} onClick={() => dispatch({ type: 'toggleStroke', dir: 'down' })} />
+          <ToolButton label="Strum up" shortcut="U" tip="Upstroke: high to low strings" pressed={beat.stroke === 'up'} onClick={() => dispatch({ type: 'toggleStroke', dir: 'up' })} />
+        </div>
+        <div className="grid grid-cols-6 gap-0.5" role="group" aria-label="Dynamics">
+          {DYNAMIC_OPTIONS.map((d) => (
+            <button
+              key={d}
+              type="button"
+              className="btn h-7 px-0 italic font-semibold"
+              aria-pressed={beat.dynamic === d}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => dispatch({ type: 'setBeatProps', patch: { dynamic: beat.dynamic === d ? undefined : d } })}
+              data-tip={`Dynamics ${d}: applies from this beat on`}
+            >
+              {d}
+            </button>
+          ))}
+        </div>
+        <input
+          className="field h-7 text-xs"
+          placeholder="Section text, e.g. Intro"
+          maxLength={40}
+          value={beat.text ?? ''}
+          onChange={(e) => dispatch({ type: 'setBeatProps', patch: { text: e.target.value } })}
+          aria-label="Text above the staff"
+          data-tip="Text above the staff at this beat (section names, directions)"
+        />
+      </div>
+    ),
     connect: (
       <div className="grid grid-cols-2 gap-1">
         <ToolButton label="Hammer / pull" shortcut="H" tip="Hammer-on or pull-off to the next note on this string" pressed={!!tech.legato} disabled={noNote} onClick={() => toggle('legato')} className="col-span-2" />
@@ -117,7 +155,8 @@ export function ToolPalette({ song, cursor, dispatch, panel }: Props) {
         ].map(([v, label]) => (
           <ToolButton key={v} label={label} tip={v === 2 ? 'Bend a whole step (B)' : `Bend ${label} step${v === 1 ? '' : 's'}`} pressed={tech.bend === v} disabled={noNote} onClick={() => set('bend', v as number)} className="justify-center px-1" />
         ))}
-        <ToolButton label="Release" tip="Release the bend back to pitch" pressed={!!tech.bendRelease} disabled={noNote || !tech.bend} onClick={() => set('bendRelease', true)} className="col-span-4" />
+        <ToolButton label="Release" tip="Release the bend back to pitch" pressed={!!tech.bendRelease} disabled={noNote || !tech.bend} onClick={() => set('bendRelease', true)} className="col-span-2" />
+        <ToolButton label="Pre-bend" tip="Bend before picking: the note starts bent" pressed={!!tech.prebend} disabled={noNote || !tech.bend} onClick={() => toggle('prebend')} className="col-span-2" />
       </div>
     ),
     expression: (
@@ -128,7 +167,35 @@ export function ToolPalette({ song, cursor, dispatch, panel }: Props) {
         <ToolButton label="Tap" shortcut="T" tip="Tapped note" pressed={!!tech.tapped} disabled={noNote} onClick={() => toggle('tapped')} />
         <ToolButton label="Natural harm." shortcut="N" tip="Natural harmonic" pressed={tech.harmonic === 'natural'} disabled={noNote} onClick={() => set('harmonic', 'natural')} />
         <ToolButton label="Artif. harm." tip="Artificial harmonic (A.H.)" pressed={tech.harmonic === 'artificial'} disabled={noNote} onClick={() => set('harmonic', 'artificial')} />
+        <ToolButton label="Pinch harm." tip="Pinch harmonic (P.H.)" pressed={tech.harmonic === 'pinch'} disabled={noNote} onClick={() => set('harmonic', 'pinch')} />
+        <ToolButton label="Tap harm." tip="Tapped harmonic (T.H.)" pressed={tech.harmonic === 'tapped'} disabled={noNote} onClick={() => set('harmonic', 'tapped')} />
         <ToolButton label="Ghost" shortcut="G" tip="Ghost note, shown in parentheses" pressed={!!tech.ghost} disabled={noNote} onClick={() => toggle('ghost')} />
+      </div>
+    ),
+    articulation: (
+      <div className="grid grid-cols-2 gap-1">
+        <ToolButton label="Accent" shortcut="A" tip="Accent (>)" pressed={tech.accent === 'normal'} disabled={noNote} onClick={() => set('accent', 'normal')} />
+        <ToolButton label="Heavy acc." shortcut="Shift+A" tip="Heavy accent (^)" pressed={tech.accent === 'heavy'} disabled={noNote} onClick={() => set('accent', 'heavy')} />
+        <ToolButton label="Staccato" tip="Short, detached note" pressed={!!tech.staccato} disabled={noNote} onClick={() => toggle('staccato')} />
+        <ToolButton label="Fade in" tip="Volume swell into the note" pressed={!!tech.fadeIn} disabled={noNote} onClick={() => toggle('fadeIn')} />
+        <ToolButton label="Slap" tip="Slap (S)" pressed={!!tech.slap} disabled={noNote} onClick={() => toggle('slap')} />
+        <ToolButton label="Pop" tip="Pop (P)" pressed={!!tech.pop} disabled={noNote} onClick={() => toggle('pop')} />
+        <ToolButton label="Tremolo" tip="Tremolo picking: re-pick the note rapidly" pressed={!!tech.tremolo} disabled={noNote} onClick={() => toggle('tremolo')} />
+        <ToolButton
+          label="Trill"
+          tip="Trill with the fret two above (change it in the Selection panel)"
+          pressed={tech.trill !== undefined}
+          disabled={noNote || tech.dead}
+          onClick={() => dispatch({ type: 'exec', command: cmd.setTechnique(cursor, 'trill', tech.trill !== undefined ? undefined : Math.min(30, (note?.fret ?? 0) + 2)) })}
+        />
+        <ToolButton
+          label="Grace note"
+          tip="Grace note two frets below, slurred in (change it in the Selection panel)"
+          pressed={tech.grace !== undefined}
+          disabled={noNote || tech.dead}
+          onClick={() => dispatch({ type: 'exec', command: cmd.setTechnique(cursor, 'grace', tech.grace !== undefined ? undefined : Math.max(0, (note?.fret ?? 0) - 2)) })}
+          className="col-span-2"
+        />
       </div>
     ),
     beat: (
@@ -146,7 +213,8 @@ export function ToolPalette({ song, cursor, dispatch, panel }: Props) {
   const meta: Partial<Record<ToolSection, React.ReactNode>> = {
     frets: `${stringName} string`,
     duration: beat.rest ? `${durationName(beat.duration)} rest` : durationName(beat.duration),
-    ...(noNote ? { connect: 'select a note', bend: 'select a note', expression: 'select a note' } : {}),
+    chord: [beat.chord, beat.stroke && `strum ${beat.stroke}`, beat.dynamic].filter(Boolean).join(', ') || undefined,
+    ...(noNote ? { connect: 'select a note', bend: 'select a note', expression: 'select a note', articulation: 'select a note' } : {}),
   };
 
   const visible = customizing ? prefs.order : prefs.order.filter((id) => !prefs.hidden.includes(id));

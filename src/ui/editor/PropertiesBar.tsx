@@ -23,7 +23,7 @@ export function PropertiesBar({ song, cursor, dispatch, onSongInfo, onEditTuning
   const { tuning, capo } = track.instrument;
   const preset = findPreset(tuning);
   const { artist, composer } = song.meta;
-  const summary = [artist, composer && `music by ${composer}`].filter(Boolean).join(', ');
+  const summary = [artist, composer && composer !== artist && `music by ${composer}`].filter(Boolean).join(', ');
 
   const setStrings = (count: number) => {
     if (count === tuning.length) return;

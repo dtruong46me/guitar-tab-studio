@@ -49,7 +49,7 @@ describe('song credits', () => {
     // Centred on the page.
     expect(b.x + b.w / 2).toBeCloseTo(pages[0].width / 2, -1);
     expect(b.y + b.h / 2).toBeCloseTo(pages[0].height / 2, -1);
-    const raw = pagesToPdf(pages, song, false).output();
+    const raw = pagesToPdf(pages, song, { compress: false }).output();
     expect(raw).toContain('(DRAFT) Tj');
     expect(raw).toContain('(2026 Example Music) Tj');
   });
@@ -87,12 +87,14 @@ describe('blank tabs and rests', () => {
 });
 
 describe('panel preferences', () => {
-  it('drops unknown groups, keeps order and appends new ones', () => {
+  it('drops unknown groups, keeps the user order and adds new groups', () => {
     expect(normalizePrefs(null)).toEqual(DEFAULT_PREFS);
     const p = normalizePrefs({ left: false, order: ['bend', 'nope', 'frets', 'bend'], hidden: ['beat', 'x'], collapsed: ['i-note', 3] });
     expect(p.left).toBe(false);
     expect(p.right).toBe(true);
-    expect(p.order.slice(0, 2)).toEqual(['bend', 'frets']);
+    // The user's relative order survives; groups they never saw are inserted at their default spot.
+    expect(p.order.indexOf('bend')).toBeLessThan(p.order.indexOf('frets'));
+    expect(new Set(p.order).size).toBe(p.order.length);
     expect(p.order).toHaveLength(DEFAULT_PREFS.order.length);
     expect(p.hidden).toEqual(['beat']);
     expect(p.collapsed).toEqual(['i-note']);

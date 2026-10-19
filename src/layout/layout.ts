@@ -73,11 +73,16 @@ export interface MeasureLayout {
 
 export interface SystemRows {
   tempoY?: number;
+  /** Section text such as "Intro" or "Chorus". */
+  textY?: number;
+  chordY?: number;
   measureNumberY: number;
   palmMuteY?: number;
   letRingY?: number;
   vibratoY?: number;
   lettersY: number;
+  /** Dynamics (p, mf, f...) below the rhythm stems. */
+  dynamicY?: number;
 }
 
 export interface SystemLayout {
@@ -105,12 +110,22 @@ export interface TrackLayout {
 const BASE_WIDTH: Record<number, number> = { 1: 58, 2: 42, 4: 30, 8: 23, 16: 19 };
 const BLANK_MEASURE_WIDTH = 110;
 
-export function noteLabel(fret: number, t: { dead?: boolean; ghost?: boolean; tie?: boolean; harmonic?: string }): string {
+export function noteLabel(fret: number, t: { dead?: boolean; ghost?: boolean; tie?: boolean; harmonic?: string; trill?: number }): string {
   if (t.dead) return 'x';
-  if (t.harmonic === 'natural') return `<${fret}>`;
-  if (t.ghost || t.tie) return `(${fret})`;
-  return String(fret);
+  let label = String(fret);
+  if (t.harmonic === 'natural') label = `<${fret}>`;
+  else if (t.ghost || t.tie) label = `(${fret})`;
+  // A trill shows the alternate fret in parentheses after the main one, e.g. 5(7).
+  if (t.trill !== undefined) label += `(${t.trill})`;
+  return label;
 }
+
+/** Space reserved left of the note column for grace notes and strum arrows. */
+export function beatLead(beat: Beat, m: Metrics): number {
+  return (beat.notes.some((n) => n.techniques.grace !== undefined) ? 10 * m.u : 0) + (beat.stroke && beat.notes.length ? 6 * m.u : 0);
+}
+
+export const chordSize = (m: Metrics) => 9 * m.u;
 
 function beatMinWidth(beat: Beat, m: Metrics): number {
   const base = BASE_WIDTH[beat.duration.value] * (beat.duration.dotted ? 1.2 : 1) * m.u;
@@ -118,11 +133,17 @@ function beatMinWidth(beat: Beat, m: Metrics): number {
   for (const n of beat.notes) label = Math.max(label, textWidth(noteLabel(n.fret, n.techniques), m.fretSize, 'mono'));
   // Room for a slide or bend drawn to the right of the note.
   const extra = beat.notes.some((n) => n.techniques.slide || n.techniques.bend) ? 8 * m.u : 0;
-  return Math.max(base, label + 9 * m.u + extra);
+  // A chord name must not run into the next one.
+  const chord = beat.chord ? textWidth(beat.chord, chordSize(m), 'sans', true) + 5 * m.u : 0;
+  return Math.max(base, label + 9 * m.u + extra, chord) + beatLead(beat, m);
 }
 
 function hasTechnique(song: Song, track: number, measures: number[], key: 'palmMute' | 'letRing' | 'vibrato'): boolean {
   return measures.some((mi) => song.tracks[track].measures[mi].beats.some((b) => b.notes.some((n) => n.techniques[key])));
+}
+
+function hasBeatProp(song: Song, track: number, measures: number[], key: 'chord' | 'text' | 'dynamic'): boolean {
+  return measures.some((mi) => song.tracks[track].measures[mi].beats.some((b) => b[key]));
 }
 
 export function layoutTrack(song: Song, track: number, opts: LayoutOptions): TrackLayout {
@@ -184,7 +205,8 @@ export function layoutTrack(song: Song, track: number, opts: LayoutOptions): Tra
       let tick = 0;
       const beats = measure.beats.map((b, bi) => {
         const slotW = nm.beatWidths[bi] * scale;
-        const bl: BeatLayout = { beat: bi, slotX: bx, slotW, x: bx + Math.min(slotW / 2, 9 * m.u), tickStart: tick };
+        const lead = beatLead(b, m);
+        const bl: BeatLayout = { beat: bi, slotX: bx, slotW, x: bx + lead + Math.min((slotW - lead) / 2, 9 * m.u), tickStart: tick };
         bx += slotW;
         tick += durationTicks(b.duration);
         return bl;
@@ -212,6 +234,14 @@ export function layoutTrack(song: Song, track: number, opts: LayoutOptions): Tra
       rows.tempoY = ry + 9 * m.u;
       ry += 14 * m.u;
     }
+    if (hasBeatProp(song, track, mis, 'text')) {
+      rows.textY = ry + 9 * m.u;
+      ry += 13 * m.u;
+    }
+    if (hasBeatProp(song, track, mis, 'chord')) {
+      rows.chordY = ry + 9 * m.u;
+      ry += 13 * m.u;
+    }
     rows.measureNumberY = ry + 7 * m.u;
     ry += m.rowH;
     if (hasTechnique(song, track, mis, 'palmMute')) {
@@ -231,7 +261,11 @@ export function layoutTrack(song: Song, track: number, opts: LayoutOptions): Tra
     const staffTop = ry + 2 * m.u;
     const staffBottom = staffTop + (strings - 1) * m.gap;
     const rhythmTop = staffBottom + 7 * m.u;
-    const height = rhythmTop + m.stemLen + 4 * m.u;
+    let height = rhythmTop + m.stemLen + 4 * m.u;
+    if (hasBeatProp(song, track, mis, 'dynamic')) {
+      rows.dynamicY = height + 8 * m.u;
+      height += 12 * m.u;
+    }
     systems.push({ index: li, y, height, staffTop, staffBottom, rhythmTop, rows, measures });
     y += height + systemGap;
   });

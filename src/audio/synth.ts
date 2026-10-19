@@ -97,7 +97,11 @@ export class GuitarSynth {
     src.playbackRate.value = voice.rate;
     const amp = this.ctx.createGain();
     const release = ev.timbre === 'dead' ? 0.02 : 0.06;
-    amp.gain.setValueAtTime(ev.gain, at);
+    if (ev.fadeIn) {
+      // Volume swell: start silent and reach full level over most of the note.
+      amp.gain.setValueAtTime(0.0001, at);
+      amp.gain.linearRampToValueAtTime(ev.gain, at + ev.duration * 0.6);
+    } else amp.gain.setValueAtTime(ev.gain, at);
     amp.gain.setValueAtTime(ev.gain, at + ev.duration);
     amp.gain.linearRampToValueAtTime(0, at + ev.duration + release);
 
