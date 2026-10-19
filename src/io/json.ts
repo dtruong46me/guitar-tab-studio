@@ -4,7 +4,7 @@
  * Parsing validates and normalises untrusted input; it never throws.
  */
 import type { Beat, DurationValue, MasterBar, Measure, Note, NoteTechniques, Song, TimeSignature, Track } from '../model/types';
-import { DURATION_VALUES, SCHEMA_VERSION } from '../model/types';
+import { DURATION_VALUES, DYNAMICS, SCHEMA_VERSION, type Dynamic } from '../model/types';
 import { newId } from '../model/factory';
 import { MAX_CAPO, MAX_FRET, pitchToMidi } from '../model/tuning';
 
@@ -56,13 +56,21 @@ function timeSig(v: unknown): TimeSignature | null {
 function techniques(v: unknown): NoteTechniques {
   const t: NoteTechniques = {};
   if (!isObj(v)) return t;
-  for (const key of ['legato', 'vibrato', 'palmMute', 'letRing', 'tapped', 'ghost', 'tie', 'dead', 'bendRelease'] as const) {
+  for (const key of ['legato', 'vibrato', 'palmMute', 'letRing', 'tapped', 'ghost', 'tie', 'dead', 'bendRelease', 'prebend', 'slap', 'pop', 'staccato', 'tremolo', 'fadeIn'] as const) {
     if (v[key] === true) t[key] = true;
   }
   if (v.slide === 'up' || v.slide === 'down' || v.slide === 'legato') t.slide = v.slide;
-  if (v.harmonic === 'natural' || v.harmonic === 'artificial') t.harmonic = v.harmonic;
+  if (v.harmonic === 'natural' || v.harmonic === 'artificial' || v.harmonic === 'pinch' || v.harmonic === 'tapped') t.harmonic = v.harmonic;
+  if (v.accent === 'normal' || v.accent === 'heavy') t.accent = v.accent;
   if (typeof v.bend === 'number' && v.bend > 0 && v.bend <= 4) t.bend = v.bend;
-  if (!t.bend) delete t.bendRelease;
+  if (!t.bend) {
+    delete t.bendRelease;
+    delete t.prebend;
+  }
+  const grace = int(v.grace, 0, MAX_FRET);
+  if (grace !== null) t.grace = grace;
+  const trill = int(v.trill, 0, MAX_FRET);
+  if (trill !== null) t.trill = trill;
   return t;
 }
 
@@ -106,6 +114,12 @@ function normalizeSong(raw: unknown): ParseResult {
         notes.sort((a, b) => a.string - b.string);
         const beat: Beat = { id: str(rb.id, '') || newId(), duration: { value, dotted: d.dotted === true }, notes };
         if (rb.rest === true && notes.length === 0) beat.rest = true;
+        const chord = str(rb.chord, '', 16).trim();
+        if (chord) beat.chord = chord;
+        const text = str(rb.text, '', 40).trim();
+        if (text) beat.text = text;
+        if (rb.stroke === 'up' || rb.stroke === 'down') beat.stroke = rb.stroke;
+        if (DYNAMICS.includes(rb.dynamic as Dynamic)) beat.dynamic = rb.dynamic as Dynamic;
         beats.push(beat);
       }
       if (beats.length === 0) beats.push({ id: newId(), duration: { value: 4, dotted: false }, notes: [] });

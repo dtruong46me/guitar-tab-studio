@@ -27,8 +27,8 @@ export function PrintPreview({ song, track, onClose, onExported, onError }: Prop
     setBusy(true);
     try {
       // jsPDF is loaded on demand to keep the editor bundle small.
-      const { pagesToPdf, pdfFileName } = await import('../pdf/pdfWriter');
-      const doc = pagesToPdf(pages, song);
+      const [{ pagesToPdf, pdfFileName }, { loadPdfFonts }] = await Promise.all([import('../pdf/pdfWriter'), import('../pdf/fonts')]);
+      const doc = pagesToPdf(pages, song, { fonts: await loadPdfFonts() });
       const name = pdfFileName(song);
       doc.save(name);
       onExported(name);

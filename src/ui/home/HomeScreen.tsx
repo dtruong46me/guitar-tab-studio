@@ -113,7 +113,7 @@ export function HomeScreen({ onOpen, onCreate, notify, theme, onTheme }: Props) 
             <h2 id="new-heading" className="text-base font-semibold mb-3">
               Start a new tab
             </h2>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
               {templates.map((t) => (
                 <button
                   key={t.id}

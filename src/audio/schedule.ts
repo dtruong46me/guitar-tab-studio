@@ -2,7 +2,7 @@
  * Playback schedule: turns a Song into timed note events, beat positions and metronome clicks.
  * Pure (no Web Audio), so timing and technique handling are unit-testable.
  */
-import type { Note, Song } from '../model/types';
+import type { Dynamic, Note, Song } from '../model/types';
 import { durationTicks, effectiveTempos, effectiveTimeSignatures, TICKS_PER_QUARTER } from '../model/duration';
 import { notePitch } from '../model/tuning';
 
@@ -20,6 +20,8 @@ export interface NoteEvent {
   /** Pitch movement in cents relative to `midi`, as [offset seconds, cents] points. */
   pitchCurve?: [number, number][];
   vibrato?: boolean;
+  /** Swell from silence to full level. */
+  fadeIn?: boolean;
 }
 
 export interface BeatTime {
@@ -55,6 +57,13 @@ export interface ScheduleOptions {
 const HARMONIC_INTERVAL: Record<number, number> = { 12: 12, 24: 24, 7: 19, 19: 19, 5: 24, 4: 28, 9: 28, 16: 28, 3: 31 };
 
 const LET_RING_SECONDS = 4;
+/** Relative loudness of each dynamic marking (mf-f is the default level). */
+export const DYNAMIC_GAIN: Record<Dynamic, number> = { pp: 0.4, p: 0.55, mp: 0.72, mf: 0.88, f: 1, ff: 1.15 };
+/** Delay between strings in a strum. */
+const STRUM_STEP = 0.014;
+/** Rate of trills and tremolo picking, in notes per second. */
+const FAST_NOTES_PER_SECOND = 14;
+const GRACE_SECONDS = 0.07;
 
 export function harmonicMidi(openMidi: number, fret: number): number {
   return openMidi + (HARMONIC_INTERVAL[fret] ?? 12);
@@ -104,6 +113,9 @@ export function buildSchedule(song: Song, opts: ScheduleOptions): Schedule {
     const { tuning, capo } = track.instrument;
     // Last event per string, to extend ties, cut notes and apply legato.
     const lastOnString = new Map<number, { ev: NoteEvent; note: Note }>();
+    // Dynamics carry forward from their marking; earlier measures set the level when starting mid-song.
+    let level = 1;
+    for (let m = 0; m < start; m++) for (const b of track.measures[m].beats) if (b.dynamic) level = DYNAMIC_GAIN[b.dynamic];
 
     for (let m = start; m < song.masterBars.length; m++) {
       const secPerTick = 60 / (tempos[m] * speed) / TICKS_PER_QUARTER;
@@ -113,8 +125,12 @@ export function buildSchedule(song: Song, opts: ScheduleOptions): Schedule {
         const dur = durationTicks(beat.duration) * secPerTick;
         tick += durationTicks(beat.duration);
         if (ti === opts.cursorTrack) beats.push({ time, measure: m, beat: bi });
+        if (beat.dynamic) level = DYNAMIC_GAIN[beat.dynamic];
+        // Strums spread the attack across the strings: down = low to high, up = high to low.
+        const order = [...beat.notes].sort((a, b) => (beat.stroke === 'up' ? a.string - b.string : b.string - a.string));
 
         for (const note of beat.notes) {
+          const strum = beat.stroke ? order.indexOf(note) * STRUM_STEP : 0;
           const tech = note.techniques;
           const prev = lastOnString.get(note.string);
           const midi = notePitch(tuning, capo, note.string, note.fret);
@@ -134,29 +150,60 @@ export function buildSchedule(song: Song, opts: ScheduleOptions): Schedule {
           if (tech.dead) timbre = 'dead';
           else if (tech.harmonic) {
             timbre = 'harmonic';
-            eventMidi = tech.harmonic === 'natural' ? harmonicMidi(notePitch(tuning, capo, note.string, 0), note.fret) : midi + 12;
+            if (tech.harmonic === 'natural') eventMidi = harmonicMidi(notePitch(tuning, capo, note.string, 0), note.fret);
+            else if (tech.harmonic === 'pinch') eventMidi = midi + 19;
+            else eventMidi = midi + 12;
           } else if (tech.palmMute) timbre = 'muted';
 
-          let gain = 0.8;
-          if (tech.ghost) gain = 0.3;
+          let gain = 0.8 * level;
+          if (tech.ghost) gain *= 0.38;
           if (legatoFromPrev || tech.tapped) gain *= 0.65;
+          if (tech.accent) gain *= tech.accent === 'heavy' ? 1.4 : 1.22;
+          if (tech.slap || tech.pop) gain *= 1.15;
+
+          let sounding = tech.letRing ? Math.max(dur, LET_RING_SECONDS) : tech.dead ? Math.min(dur, 0.08) : timbre === 'muted' ? Math.min(dur, 0.25) : dur;
+          if (tech.staccato) sounding = Math.min(sounding, dur * 0.45);
+
+          // A grace note is squeezed in just before the beat, slurred into the main note.
+          if (tech.grace !== undefined && !tech.dead) {
+            const graceTime = Math.max(0, time + strum - GRACE_SECONDS);
+            events.push({ time: graceTime, duration: time + strum - graceTime, midi: notePitch(tuning, capo, note.string, tech.grace), gain: gain * 0.75, timbre: 'pluck', track: ti, string: note.string });
+          }
 
           const ev: NoteEvent = {
-            time,
-            duration: tech.letRing ? Math.max(dur, LET_RING_SECONDS) : tech.dead ? Math.min(dur, 0.08) : timbre === 'muted' ? Math.min(dur, 0.25) : dur,
+            time: time + strum,
+            duration: sounding,
             midi: eventMidi,
             gain,
             timbre,
             track: ti,
             string: note.string,
           };
+          if (tech.grace !== undefined) ev.gain *= 0.8;
           if (tech.bend) {
             const cents = tech.bend * 100;
-            const rise = Math.min(dur * 0.4, 0.25);
-            ev.pitchCurve = [[0, 0], [rise, cents]];
-            if (tech.bendRelease) ev.pitchCurve.push([Math.max(rise, dur * 0.55), cents], [Math.max(rise + 0.05, dur * 0.9), 0]);
+            if (tech.prebend) {
+              ev.pitchCurve = [[0, cents]];
+              if (tech.bendRelease) ev.pitchCurve.push([dur * 0.4, cents], [Math.max(dur * 0.4 + 0.05, dur * 0.85), 0]);
+            } else {
+              const rise = Math.min(dur * 0.4, 0.25);
+              ev.pitchCurve = [[0, 0], [rise, cents]];
+              if (tech.bendRelease) ev.pitchCurve.push([Math.max(rise, dur * 0.55), cents], [Math.max(rise + 0.05, dur * 0.9), 0]);
+            }
           }
           if (tech.vibrato) ev.vibrato = true;
+          if (tech.fadeIn) ev.fadeIn = true;
+
+          // Trills alternate with another fret; tremolo picking repeats the note.
+          if ((tech.trill !== undefined || tech.tremolo) && timbre !== 'dead') {
+            const step = 1 / FAST_NOTES_PER_SECOND;
+            const count = Math.max(1, Math.floor(dur / step));
+            const alt = tech.trill !== undefined ? notePitch(tuning, capo, note.string, tech.trill) : eventMidi;
+            ev.duration = Math.min(ev.duration, step);
+            for (let k = 1; k < count; k++) {
+              events.push({ ...ev, time: ev.time + k * step, duration: k === count - 1 ? dur - k * step : step, midi: k % 2 && tech.trill !== undefined ? alt : eventMidi, gain: ev.gain * (tech.trill !== undefined ? 0.7 : 0.9), pitchCurve: undefined });
+            }
+          }
           if (tech.slide === 'up' || tech.slide === 'down') slideOuts.push({ ev, dir: tech.slide });
           events.push(ev);
           lastOnString.set(note.string, { ev, note });

@@ -6,6 +6,7 @@ import { HelpDialog } from '../HelpDialog';
 import { PrintPreview } from '../PrintPreview';
 import { TabCanvas } from '../TabCanvas';
 import type { Theme } from '../theme';
+import { ChordDialog, usedChords } from './ChordDialog';
 import { clampZoom } from './constants';
 import { Inspector } from './Inspector';
 import { usePanelPrefs } from './panelPrefs';
@@ -18,7 +19,7 @@ import { TuningDialog } from './TuningDialog';
 import { useEditorSession } from './useEditorSession';
 import { usePlayback } from './usePlayback';
 
-type Dialog = 'print' | 'help' | 'tuning' | 'songInfo' | null;
+type Dialog = 'print' | 'help' | 'tuning' | 'songInfo' | 'chord' | null;
 
 interface Props {
   song: Song;
@@ -101,6 +102,9 @@ export function EditorScreen({ song: initial, saved, onHome, notify, theme, onTh
         case 'songInfo':
           setDialog('songInfo');
           break;
+        case 'chord':
+          setDialog('chord');
+          break;
         case 'zoomIn':
           setZoom(clampZoom(zoom + 0.1));
           break;
@@ -169,7 +173,7 @@ export function EditorScreen({ song: initial, saved, onHome, notify, theme, onTh
       />
       <PropertiesBar song={state.song} cursor={state.cursor} dispatch={dispatch} onSongInfo={() => setDialog('songInfo')} onEditTuning={() => setDialog('tuning')} />
       <div className="flex-1 min-h-0 flex">
-        {panel.prefs.left && <ToolPalette song={state.song} cursor={state.cursor} dispatch={dispatch} panel={panel} />}
+        {panel.prefs.left && <ToolPalette song={state.song} cursor={state.cursor} dispatch={dispatch} panel={panel} onChord={() => setDialog('chord')} />}
         <main className="flex-1 min-w-0 bg-bg0" aria-label="Tablature">
           <TabCanvas
             song={state.song}
@@ -188,6 +192,14 @@ export function EditorScreen({ song: initial, saved, onHome, notify, theme, onTh
         <PrintPreview song={state.song} track={state.cursor.track} onClose={close} onExported={(name) => notify(`Downloaded ${name}.`)} onError={(m) => notify(m, 'error')} />
       )}
       {dialog === 'help' && <HelpDialog onClose={close} />}
+      {dialog === 'chord' && (
+        <ChordDialog
+          current={track.measures[state.cursor.measure].beats[state.cursor.beat].chord}
+          used={usedChords(track.measures.flatMap((m) => m.beats))}
+          onClose={close}
+          onApply={(chord) => dispatch({ type: 'setBeatProps', patch: { chord } })}
+        />
+      )}
       {dialog === 'tuning' && <TuningDialog tuning={track.instrument.tuning} onClose={close} onApply={(t) => dispatch({ type: 'exec', command: cmd.setTuning(state.cursor.track, t) })} />}
       {dialog === 'songInfo' && <SongInfoDialog meta={state.song.meta} onClose={close} onApply={(patch) => dispatch({ type: 'exec', command: { ...cmd.setMeta(patch), label: 'Edit song info', mergeKey: undefined } })} />}
     </div>

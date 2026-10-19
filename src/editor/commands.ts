@@ -21,6 +21,15 @@ export const setFret = (pos: Position, fret: number, merge = false): Command => 
   mergeKey: merge ? `fret:${posKey(pos)}` : undefined,
 });
 
+export const setDeadNote = (pos: Position): Command => ({ label: 'Dead note', apply: (s) => ops.setDeadNote(s, pos) });
+
+export const setBeatProps = (pos: Position, patch: Partial<ops.BeatProps>): Command => ({
+  label: 'chord' in patch ? 'Chord name' : 'text' in patch ? 'Text' : 'stroke' in patch ? 'Strum' : 'Dynamics',
+  apply: (s) => ops.setBeatProps(s, pos.track, pos.measure, pos.beat, patch),
+  // Typing a chord name or section text merges into one undo step.
+  mergeKey: 'text' in patch || 'chord' in patch ? `beat-${Object.keys(patch).join()}:${posKey(pos)}` : undefined,
+});
+
 export const removeNote = (pos: Position): Command => ({ label: 'Delete note', apply: (s) => ops.removeNote(s, pos) });
 
 export const setTechnique = <K extends keyof NoteTechniques>(pos: Position, key: K, value: NoteTechniques[K] | undefined): Command => ({

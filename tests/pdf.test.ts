@@ -23,7 +23,7 @@ describe('pagination', () => {
     song = ops.setMeta(song, { artist: 'The Band' });
     const pages = paginate(song, { orientation: 'portrait', tracks: [0] });
     const texts = pages[0].ops.filter((o) => o.t === 'text').map((o) => (o as { text: string }).text);
-    expect(texts).toContain('Getting Started');
+    expect(texts).toContain('Technique Showcase');
     expect(texts).toContain('The Band');
     expect(texts.some((t) => t.includes('Tuning: E A D G B E') && t.includes('Capo 3'))).toBe(true);
     expect(texts.some((t) => t.includes('120 BPM') && t.includes('4/4'))).toBe(true);
@@ -84,7 +84,7 @@ describe('PDF writer', () => {
   it('writes a vector PDF with real text and one PDF page per preview page', () => {
     const song = denseSong(80);
     const pages = paginate(song, { orientation: 'portrait', tracks: [0] });
-    const doc = pagesToPdf(pages, song, false);
+    const doc = pagesToPdf(pages, song, { compress: false });
     expect(doc.getNumberOfPages()).toBe(pages.length);
     const raw = doc.output();
     expect(raw.startsWith('%PDF-')).toBe(true);

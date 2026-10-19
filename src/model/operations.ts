@@ -87,6 +87,35 @@ export function moveNoteToString(song: Song, pos: Position, targetString: number
 
 // ---------- beats ----------
 
+export type BeatProps = Pick<Beat, 'chord' | 'text' | 'stroke' | 'dynamic'>;
+
+/** Set beat-level markings. Empty strings and undefined remove a marking. */
+export function setBeatProps(song: Song, track: number, measure: number, beat: number, patch: Partial<BeatProps>): Song {
+  const b = getBeat(song, track, measure, beat);
+  if (!b) return song;
+  const keys = Object.keys(patch) as (keyof BeatProps)[];
+  // Blank strings remove a marking; others are kept as typed (trimming mid-typing would eat spaces).
+  const norm = (v: unknown) => (typeof v === 'string' && !v.trim() ? undefined : v);
+  if (keys.every((k) => norm(patch[k]) === b[k])) return song;
+  return produce(song, (draft) => {
+    const d = draft.tracks[track].measures[measure].beats[beat];
+    for (const k of keys) {
+      const v = norm(patch[k]);
+      if (v === undefined) delete d[k];
+      else (d as Record<string, unknown>)[k] = v;
+    }
+  });
+}
+
+/** Place a dead (muted, "x") note on a string, creating the note if the string is empty. */
+export function setDeadNote(song: Song, pos: Position): Song {
+  const existing = findNote(song, pos);
+  if (existing?.techniques.dead) return song;
+  const withNote = existing ? song : setNote(song, pos, 0);
+  if (withNote === song && !existing) return song;
+  return setTechnique(withNote, pos, 'dead', true);
+}
+
 export function setBeatDuration(song: Song, track: number, measure: number, beat: number, duration: Duration): Song {
   if (!getBeat(song, track, measure, beat)) return song;
   return produce(song, (draft) => {

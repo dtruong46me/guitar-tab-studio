@@ -13,7 +13,23 @@ const RGB: Record<InkColor, [number, number, number]> = {
   faint: [227, 229, 233],
 };
 
-export function pagesToPdf(pages: Page[], song: Song, compress = true): jsPDF {
+/** Base64 TrueType data for a Unicode sans family (see fonts.ts). */
+export interface PdfFonts {
+  regular: string;
+  italic: string;
+  bold: string;
+  boldItalic: string;
+}
+
+export interface PdfOptions {
+  compress?: boolean;
+  /** Without fonts, sans text uses Helvetica, which only covers Latin-1. */
+  fonts?: PdfFonts;
+}
+
+const SANS_FAMILY = 'Inter';
+
+export function pagesToPdf(pages: Page[], song: Song, { compress = true, fonts }: PdfOptions = {}): jsPDF {
   const first = pages[0];
   const doc = new jsPDF({
     unit: 'pt',
@@ -28,14 +44,28 @@ export function pagesToPdf(pages: Page[], song: Song, compress = true): jsPDF {
     subject: [song.meta.title, song.meta.subtitle, song.meta.artist].filter(Boolean).join(', '),
     creator: 'Guitar Tab Studio',
   });
+  if (fonts) {
+    const files: [keyof PdfFonts, string][] = [
+      ['regular', 'normal'],
+      ['italic', 'italic'],
+      ['bold', 'bold'],
+      ['boldItalic', 'bolditalic'],
+    ];
+    for (const [key, style] of files) {
+      const name = `${SANS_FAMILY}-${key}.ttf`;
+      doc.addFileToVFS(name, fonts[key]);
+      doc.addFont(name, SANS_FAMILY, style);
+    }
+  }
+  const sans = fonts ? SANS_FAMILY : 'helvetica';
   pages.forEach((page, i) => {
     if (i > 0) doc.addPage('a4', page.width > page.height ? 'landscape' : 'portrait');
-    for (const op of page.ops) drawOp(doc, op);
+    for (const op of page.ops) drawOp(doc, op, sans);
   });
   return doc;
 }
 
-function drawOp(doc: jsPDF, op: Op) {
+function drawOp(doc: jsPDF, op: Op, sans: string) {
   const [r, g, b] = RGB[op.c];
   switch (op.t) {
     case 'line':
@@ -78,7 +108,7 @@ function drawOp(doc: jsPDF, op: Op) {
       break;
     }
     case 'text': {
-      const family = op.font === 'mono' ? 'courier' : 'helvetica';
+      const family = op.font === 'mono' ? 'courier' : sans;
       const style = op.bold && op.italic ? 'bolditalic' : op.bold ? 'bold' : op.italic ? 'italic' : 'normal';
       doc.setFont(family, style);
       doc.setFontSize(op.size);
@@ -92,9 +122,9 @@ function drawOp(doc: jsPDF, op: Op) {
   }
 }
 
-export function exportPdf(song: Song, opts: PrintOptions): { doc: jsPDF; pages: Page[] } {
+export function exportPdf(song: Song, opts: PrintOptions, pdf: PdfOptions = {}): { doc: jsPDF; pages: Page[] } {
   const pages = paginate(song, opts);
-  return { doc: pagesToPdf(pages, song), pages };
+  return { doc: pagesToPdf(pages, song, pdf), pages };
 }
 
 export function pdfFileName(song: Song): string {

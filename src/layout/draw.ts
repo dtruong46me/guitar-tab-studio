@@ -5,7 +5,7 @@
 import type { Beat, Measure, Note, Song } from '../model/types';
 import { pitchClass } from '../model/tuning';
 import type { MeasureLayout, SystemLayout, TrackLayout } from './layout';
-import { noteLabel } from './layout';
+import { beatLead, chordSize, noteLabel } from './layout';
 import type { Op } from './ops';
 import { textWidth } from './ops';
 
@@ -114,27 +114,88 @@ function drawMeasure(ops: Op[], song: Song, layout: TrackLayout, system: SystemL
 
   for (const bl of ml.beats) {
     const beat = measure.beats[bl.beat];
+    // Beat-level markings apply to rests and empty beats too.
+    if (beat.text && system.rows.textY !== undefined) {
+      ops.push({ t: 'text', x: bl.x - 4 * u, y: system.rows.textY, text: beat.text, size: 8.5 * u, font: 'sans', bold: true, anchor: 'start', c: 'ink' });
+    }
+    if (beat.chord && system.rows.chordY !== undefined) {
+      ops.push({ t: 'text', x: bl.x, y: system.rows.chordY, text: beat.chord, size: chordSize(m), font: 'sans', bold: true, anchor: 'middle', c: 'ink' });
+    }
+    if (beat.dynamic && system.rows.dynamicY !== undefined) {
+      ops.push({ t: 'text', x: bl.x, y: system.rows.dynamicY, text: beat.dynamic, size: 9 * u, font: 'sans', bold: true, italic: true, anchor: 'middle', c: 'ink' });
+    }
     if (beat.notes.length === 0) {
       // Empty beats stay blank; only written rests get a symbol.
       if (beat.rest) drawRest(ops, bl.x, midY, beat, u);
       continue;
     }
     const letters: string[] = [];
+    const add = (l: string) => !letters.includes(l) && letters.push(l);
+    let staccato = false;
+    let fadeIn = false;
     for (const n of beat.notes) {
-      const label = noteLabel(n.fret, n.techniques);
+      const t = n.techniques;
+      const label = noteLabel(n.fret, t);
       const w = textWidth(label, m.fretSize, 'mono');
       const y = sy(n.string);
       ops.push({ t: 'rect', x: bl.x - w / 2 - 1 * u, y: y - m.fretSize * 0.48, w: w + 2 * u, h: m.fretSize * 0.96, c: 'paper' });
       ops.push({ t: 'text', x: bl.x, y: y + m.fretSize * 0.36, text: label, size: m.fretSize, font: 'mono', bold: true, anchor: 'middle', c: 'ink' });
-      if (n.techniques.tapped && !letters.includes('T')) letters.push('T');
-      if (n.techniques.harmonic === 'artificial' && !letters.includes('A.H.')) letters.push('A.H.');
-      if (n.techniques.bend) drawBend(ops, bl.x + w / 2, y, system, n, u);
-      if (n.techniques.vibrato && system.rows.vibratoY !== undefined) drawVibrato(ops, bl.x - 2 * u, Math.min(bl.slotW - 3 * u, 16 * u), system.rows.vibratoY, u);
+      if (t.grace !== undefined) drawGrace(ops, bl.x - w / 2, y, t.grace, m.fretSize, u);
+      if (t.accent) add(t.accent === 'heavy' ? '^' : '>');
+      if (t.tapped) add('T');
+      if (t.slap) add('S');
+      if (t.pop) add('P');
+      if (t.trill !== undefined) add('tr');
+      if (t.harmonic === 'artificial') add('A.H.');
+      if (t.harmonic === 'pinch') add('P.H.');
+      if (t.harmonic === 'tapped') add('T.H.');
+      if (t.staccato) staccato = true;
+      if (t.fadeIn) fadeIn = true;
+      if (t.bend) drawBend(ops, bl.x + w / 2, y, system, n, u, w);
+      if (t.vibrato && system.rows.vibratoY !== undefined) drawVibrato(ops, bl.x - 2 * u, Math.min(bl.slotW - 3 * u, 16 * u), system.rows.vibratoY, u);
     }
+    const ly = system.rows.lettersY;
+    let lx = bl.x;
     if (letters.length) {
-      ops.push({ t: 'text', x: bl.x, y: system.rows.lettersY, text: letters.join(' '), size: m.smallSize, font: 'sans', bold: true, anchor: 'middle', c: 'ink' });
+      const text = letters.join(' ');
+      ops.push({ t: 'text', x: bl.x, y: ly, text, size: m.smallSize, font: 'sans', bold: true, anchor: 'middle', c: 'ink' });
+      lx = bl.x + textWidth(text, m.smallSize, 'sans', true) / 2 + 2.5 * u;
     }
+    if (staccato) ops.push({ t: 'circle', cx: letters.length ? lx : bl.x, cy: ly - 2.5 * u, r: 1.1 * u, c: 'ink', fill: true });
+    if (fadeIn) {
+      const x1 = bl.x - 12 * u;
+      const x2 = bl.x - 4 * u;
+      ops.push({ t: 'path', d: [['M', x2, ly - 5 * u], ['L', x1, ly - 2.5 * u], ['L', x2, ly]], c: 'ink', w: 0.7 * u });
+    }
+    if (beat.stroke) drawStroke(ops, bl.x - beatLead(beat, m) + 1 * u, beat, sy, beat.stroke, u);
   }
+}
+
+/** Small fret number just before the main note, joined by a slur. */
+function drawGrace(ops: Op[], noteLeft: number, y: number, fret: number, fretSize: number, u: number) {
+  const size = fretSize * 0.68;
+  const label = String(fret);
+  const w = textWidth(label, size, 'mono');
+  const cx = noteLeft - 3.5 * u - w / 2;
+  ops.push({ t: 'rect', x: cx - w / 2 - 0.6 * u, y: y - size * 0.48, w: w + 1.2 * u, h: size * 0.96, c: 'paper' });
+  ops.push({ t: 'text', x: cx, y: y + size * 0.36, text: label, size, font: 'mono', bold: true, anchor: 'middle', c: 'ink' });
+  ops.push({ t: 'path', d: [['M', cx, y - size * 0.7], ['C', cx + 1 * u, y - size * 1.2, noteLeft - 0.5 * u, y - size * 1.2, noteLeft + 0.5 * u, y - size * 0.7]], c: 'ink', w: 0.6 * u });
+}
+
+/** Strum arrow left of the chord: up arrow for an upstroke, down arrow for a downstroke. */
+function drawStroke(ops: Op[], x: number, beat: Beat, sy: (s: number) => number, dir: 'up' | 'down', u: number) {
+  const strings = beat.notes.map((n) => n.string);
+  let top = sy(Math.min(...strings)) - 3 * u;
+  let bottom = sy(Math.max(...strings)) + 3 * u;
+  if (bottom - top < 10 * u) {
+    const mid = (top + bottom) / 2;
+    top = mid - 5 * u;
+    bottom = mid + 5 * u;
+  }
+  ops.push({ t: 'line', x1: x, y1: top, x2: x, y2: bottom, w: 0.8 * u, c: 'ink' });
+  const tip = dir === 'up' ? top - 1 * u : bottom + 1 * u;
+  const base = dir === 'up' ? tip + 3.5 * u : tip - 3.5 * u;
+  ops.push({ t: 'path', d: [['M', x - 1.8 * u, base], ['L', x, tip], ['L', x + 1.8 * u, base], ['Z']], c: 'ink', fill: true });
 }
 
 function drawRest(ops: Op[], x: number, midY: number, beat: Beat, u: number) {
@@ -166,16 +227,28 @@ function drawRest(ops: Op[], x: number, midY: number, beat: Beat, u: number) {
   if (beat.duration.dotted) ops.push({ t: 'circle', cx: x + 5.5 * u, cy: midY - 1 * u, r: 1.1 * u, c: 'ink', fill: true });
 }
 
-function drawBend(ops: Op[], x: number, y: number, system: SystemLayout, n: Note, u: number) {
+function drawBend(ops: Op[], x: number, y: number, system: SystemLayout, n: Note, u: number, labelW = 0) {
   const tipY = system.rows.lettersY + 2.5 * u;
-  const sx = x + 0.8 * u;
-  const tx = x + 6.5 * u;
-  ops.push({ t: 'path', d: [['M', sx, y], ['C', tx, y, tx, y, tx, tipY + 2 * u]], c: 'ink', w: 0.8 * u });
-  ops.push({ t: 'path', d: [['M', tx - 1.6 * u, tipY + 2.4 * u], ['L', tx, tipY], ['L', tx + 1.6 * u, tipY + 2.4 * u], ['Z']], c: 'ink', fill: true });
+  const arrow = (ax: number, ay: number, up: boolean) => {
+    const by = up ? ay + 2.4 * u : ay - 2.4 * u;
+    ops.push({ t: 'path', d: [['M', ax - 1.6 * u, by], ['L', ax, ay], ['L', ax + 1.6 * u, by], ['Z']], c: 'ink', fill: true });
+  };
+  let tx: number;
+  if (n.techniques.prebend) {
+    // Pre-bend: a straight arrow up from the note itself.
+    tx = x - labelW / 2;
+    ops.push({ t: 'line', x1: tx, y1: y - 5 * u, x2: tx, y2: tipY + 2 * u, w: 0.8 * u, c: 'ink' });
+    arrow(tx, tipY, true);
+  } else {
+    const sx = x + 0.8 * u;
+    tx = x + 6.5 * u;
+    ops.push({ t: 'path', d: [['M', sx, y], ['C', tx, y, tx, y, tx, tipY + 2 * u]], c: 'ink', w: 0.8 * u });
+    arrow(tx, tipY, true);
+  }
   if (n.techniques.bendRelease) {
-    const rx = tx + 5 * u;
+    const rx = Math.max(tx, x) + 5 * u;
     ops.push({ t: 'path', d: [['M', tx, tipY + 2 * u], ['C', tx + 0.5 * u, tipY + 2 * u, rx, tipY + 4 * u, rx, y - 4 * u]], c: 'ink', w: 0.8 * u });
-    ops.push({ t: 'path', d: [['M', rx - 1.6 * u, y - 6.4 * u], ['L', rx, y - 4 * u], ['L', rx + 1.6 * u, y - 6.4 * u], ['Z']], c: 'ink', fill: true });
+    arrow(rx, y - 4 * u, false);
   }
   const label = BEND_LABEL[n.techniques.bend ?? 2] ?? String(n.techniques.bend);
   ops.push({ t: 'text', x: tx, y: system.rows.lettersY, text: label, size: 7 * u, font: 'sans', anchor: 'middle', c: 'ink' });
@@ -290,6 +363,13 @@ function drawRhythm(ops: Op[], layout: TrackLayout, system: SystemLayout, measur
 
     for (const { bl, data } of beats) {
       if (data.notes.length === 0) continue;
+      if (data.notes.some((n) => n.techniques.tremolo)) {
+        // Tremolo picking: three short slashes across the stem.
+        for (let k = 0; k < 3; k++) {
+          const yy = top + layout.metrics.stemLen * 0.3 + k * 2.4 * u;
+          ops.push({ t: 'line', x1: bl.x - 2.6 * u, y1: yy + 1.2 * u, x2: bl.x + 2.6 * u, y2: yy - 1.2 * u, w: 0.9 * u, c: 'ink' });
+        }
+      }
       const v = data.duration.value;
       if (v === 1) {
         if (data.duration.dotted) ops.push({ t: 'circle', cx: bl.x + 2.5 * u, cy: bottom - 1.5 * u, r: 0.9 * u, c: 'ink', fill: true });

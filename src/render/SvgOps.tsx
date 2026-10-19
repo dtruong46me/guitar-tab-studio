@@ -15,7 +15,8 @@ const COLOR: Record<InkColor, string> = {
 /** Print mode uses the PDF's standard fonts so the preview matches the exported file. */
 const FONTS: Record<FontMode, { sans: string; mono: string }> = {
   screen: { sans: 'Inter, "Segoe UI", system-ui, sans-serif', mono: '"JetBrains Mono", ui-monospace, Menlo, Consolas, monospace' },
-  print: { sans: 'Helvetica, Arial, "Liberation Sans", sans-serif', mono: '"Courier New", Courier, "Liberation Mono", monospace' },
+  // The PDF embeds Inter for text and uses Courier for fret numbers.
+  print: { sans: 'Inter, Helvetica, Arial, sans-serif', mono: '"Courier New", Courier, "Liberation Mono", monospace' },
 };
 
 export function pathData(d: PathCmd[]): string {

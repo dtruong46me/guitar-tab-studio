@@ -1,7 +1,7 @@
 /** Workspace layout preferences: which side panels are open and how the tool panel is arranged. */
 import { useCallback, useState } from 'react';
 
-export const TOOL_SECTIONS = ['frets', 'duration', 'connect', 'bend', 'expression', 'beat'] as const;
+export const TOOL_SECTIONS = ['frets', 'duration', 'chord', 'connect', 'bend', 'expression', 'articulation', 'beat'] as const;
 export type ToolSection = (typeof TOOL_SECTIONS)[number];
 
 export interface PanelPrefs {
@@ -23,7 +23,10 @@ export function normalizePrefs(raw: unknown): PanelPrefs {
   const r = raw as Partial<PanelPrefs>;
   const known = (xs: unknown): ToolSection[] => (Array.isArray(xs) ? xs.filter((x): x is ToolSection => (TOOL_SECTIONS as readonly string[]).includes(x)) : []);
   const order = [...new Set(known(r.order))];
-  for (const s of TOOL_SECTIONS) if (!order.includes(s)) order.push(s);
+  // Groups added in a later version appear at their default position.
+  TOOL_SECTIONS.forEach((s, i) => {
+    if (!order.includes(s)) order.splice(Math.min(i, order.length), 0, s);
+  });
   return {
     left: r.left !== false,
     right: r.right !== false,

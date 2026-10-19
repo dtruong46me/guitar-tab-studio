@@ -15,13 +15,13 @@ npm run build      # type-check + production build into dist/
 
 ## Using the app
 
-The app opens on **Home**: your saved tabs (with a preview of their first line) and templates for starting a new one. Tabs save automatically in the browser as you edit. Use **Home** in the editor's title bar to go back.
+The app opens on **Home**: your saved tabs (with a preview of their first line) and templates for starting a new one, including two examples: a technique showcase and an excerpt of "Nơi Này Có Anh" (fingerstyle arrangement by Mitxi Tòng, tab by Sang Pham) with chord names, let ring and string slaps. Tabs save automatically in the browser as you edit. Use **Home** in the editor's title bar to go back.
 
 The editor layout puts what you use constantly at your fingertips and keeps rarely changed settings out of the way:
 
 - **Title bar**: Home, tab title, save status, playback (play/pause, stop, loop, metronome, practice speed), undo/redo, shortcuts, panel toggles, Export PDF.
 - **Properties bar** (rarely changed): song info (title, subtitle, artist, album, music/words/arrangement credits, copyright, optional PDF watermark), tempo, time signature, tuning, strings, capo.
-- **Tools panel** (left, `Ctrl+[`): fret pad 0-24, durations, rest, legato and slides, bends, expression. Groups can be collapsed, hidden and reordered with the customize button; the arrangement is remembered.
+- **Tools panel** (left, `Ctrl+[`): fret pad 0-24, durations, rest, chords and strumming (chord names, strum arrows, dynamics, section text), legato and slides, bends (incl. pre-bend), expression (vibrato, palm mute, let ring, harmonics: natural, artificial, pinch, tapped), articulation (accents, staccato, slap, pop, tremolo picking, trill, grace notes, fade in). Groups can be collapsed, hidden and reordered with the customize button; the arrangement is remembered.
 - **Sheet**: the title block at the top (click it to edit song info), then the tab. Click a string and type a fret number; two quick digits enter frets 10-30. Empty beats stay blank; press `R` for a written rest.
 - **Selection panel** (right, `Ctrl+]`): the selected note (fret, sounding pitch, techniques), beat and measure (time signature change, add, move, clear, delete).
 - **Status bar**: track tabs (click to switch, click the active one for rename/delete, + to add), position, theme, zoom.
@@ -35,7 +35,9 @@ Press `?` in the editor for the full, searchable shortcut guide. The most used k
 | `Shift+1` ... `Shift+5` | Whole, half, quarter, eighth, sixteenth |
 | `+` `-` `.` | Longer / shorter duration, dotted |
 | `R`, `Delete` | Make rest, delete note |
-| `H S B V P L N T G X` | Hammer/pull, slide, bend, vibrato, palm mute, let ring, harmonic, tap, ghost, dead |
+| `H S B V P L N T G A` | Hammer/pull, slide, bend, vibrato, palm mute, let ring, harmonic, tap, ghost, accent |
+| `X` | Dead note / string slap (works on an empty string) |
+| `C`, `D`, `U` | Chord name, strum down, strum up |
 | `Space`, `Shift+Space`, `M` | Play/pause, stop, metronome |
 | `Ctrl+Z`, `Ctrl+Shift+Z` | Undo, redo |
 | `Ctrl+P`, `Ctrl+I` | Print preview and PDF, song info |
