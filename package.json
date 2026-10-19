@@ -13,6 +13,7 @@
     "typecheck": "tsc -b --noEmit"
   },
   "dependencies": {
+    "@phosphor-icons/react": "2.1.10",
     "idb": "8.0.3",
     "immer": "10.1.1",
     "jspdf": "3.0.1",

@@ -2,7 +2,8 @@ import { useMemo, useState } from 'react';
 import type { Song } from '../model/types';
 import { paginate, type Orientation } from '../pdf/paginate';
 import { SvgOps } from '../render/SvgOps';
-import { Icon } from './icons';
+import { DownloadSimple } from '@phosphor-icons/react';
+import { Button, Segmented } from './controls';
 import { Modal } from './Modal';
 
 interface Props {
@@ -45,34 +46,34 @@ export function PrintPreview({ song, track, onClose, onExported, onError }: Prop
       wide
       footer={
         <>
-          <div className="seg" role="group" aria-label="Orientation">
-            <button className="!font-sans" aria-pressed={orientation === 'portrait'} onClick={() => setOrientation('portrait')} title="A4 portrait">
-              A4 portrait
-            </button>
-            <button className="!font-sans" aria-pressed={orientation === 'landscape'} onClick={() => setOrientation('landscape')} title="A4 landscape">
-              A4 landscape
-            </button>
-          </div>
+          <Segmented
+            label="Page orientation"
+            value={orientation}
+            onChange={setOrientation}
+            options={[
+              { value: 'portrait', label: 'A4 portrait' },
+              { value: 'landscape', label: 'A4 landscape' },
+            ]}
+          />
           {song.tracks.length > 1 && (
-            <div className="seg" role="group" aria-label="Tracks to print">
-              <button className="!font-sans" aria-pressed={scope === 'current'} onClick={() => setScope('current')}>
-                {song.tracks[track].name}
-              </button>
-              <button className="!font-sans" aria-pressed={scope === 'all'} onClick={() => setScope('all')}>
-                All tracks
-              </button>
-            </div>
+            <Segmented
+              label="Tracks to print"
+              value={scope}
+              onChange={setScope}
+              options={[
+                { value: 'current', label: song.tracks[track].name },
+                { value: 'all', label: 'All tracks' },
+              ]}
+            />
           )}
           <span className="text-xs text-muted">
             {pages.length} {pages.length === 1 ? 'page' : 'pages'} · vector PDF
           </span>
           <div className="flex-1" />
-          <button className="btn" onClick={onClose}>
-            Cancel
-          </button>
-          <button className="btn btn-primary" onClick={exportFile} disabled={busy} autoFocus>
-            {Icon.download} {busy ? 'Exporting…' : 'Export PDF'}
-          </button>
+          <Button onClick={onClose}>Cancel</Button>
+          <Button variant="primary" icon={DownloadSimple} onClick={exportFile} disabled={busy}>
+            {busy ? 'Exporting...' : 'Download PDF'}
+          </Button>
         </>
       }
     >

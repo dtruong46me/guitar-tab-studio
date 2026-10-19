@@ -1,12 +1,15 @@
 /** Keyboard shortcuts → editor actions or app intents. Pure, so the mapping is testable. */
+import type { DurationValue } from '../model/types';
 import type { EditorAction } from './editor';
 
-export type AppCommand = 'save' | 'exportPdf' | 'help' | 'zoomIn' | 'zoomOut' | 'zoomReset';
+export type AppCommand = 'save' | 'exportPdf' | 'help' | 'zoomIn' | 'zoomOut' | 'zoomReset' | 'playPause' | 'stop' | 'metronome';
 
 export type Intent = { kind: 'editor'; action: EditorAction } | { kind: 'app'; command: AppCommand };
 
 export interface KeyInput {
   key: string;
+  /** Physical key (e.g. "Digit1"); used for Shift+number, whose `key` depends on the layout. */
+  code?: string;
   ctrlKey: boolean;
   metaKey: boolean;
   shiftKey: boolean;
@@ -14,6 +17,7 @@ export interface KeyInput {
 }
 
 const ed = (action: EditorAction): Intent => ({ kind: 'editor', action });
+const DURATION_BY_KEY: Record<number, DurationValue> = { 1: 1, 2: 2, 3: 4, 4: 8, 5: 16 };
 const app = (command: AppCommand): Intent => ({ kind: 'app', command });
 
 export function keyToIntent(e: KeyInput, now = Date.now()): Intent | null {
@@ -41,7 +45,12 @@ export function keyToIntent(e: KeyInput, now = Date.now()): Intent | null {
     return null;
   }
 
+  // Shift + 1..5 picks a duration (whole to sixteenth); plain digits enter frets.
+  const digitCode = e.code && /^(?:Digit|Numpad)([1-5])$/.exec(e.code);
+  if (e.shiftKey && !e.altKey && digitCode) return ed({ type: 'setDuration', value: DURATION_BY_KEY[Number(digitCode[1])] });
   if (/^[0-9]$/.test(k) && !e.altKey) return ed({ type: 'digit', digit: Number(k), now });
+  if (k === ' ') return app(e.shiftKey ? 'stop' : 'playPause');
+  if (k === 'Escape') return app('stop');
 
   switch (k) {
     case 'ArrowLeft':
@@ -99,51 +108,52 @@ export function keyToIntent(e: KeyInput, now = Date.now()): Intent | null {
       return ed({ type: 'setTechnique', key: 'harmonic', value: 'natural' });
     case 'b':
       return ed({ type: 'setTechnique', key: 'bend', value: 2 });
+    case 'm':
+      return app('metronome');
   }
   return null;
 }
 
-/** Shortcut reference shown in the help dialog. */
-export const SHORTCUTS: { group: string; items: [string, string][] }[] = [
+/** Shortcut reference shown in the shortcut guide and in tooltips. */
+export const SHORTCUTS: { group: string; items: [keys: string, action: string][] }[] = [
   {
-    group: 'Notes',
+    group: 'Write notes',
     items: [
-      ['0–9', 'Enter fret on the selected string (type two digits quickly for 10–30)'],
-      ['Delete / Backspace', 'Delete note'],
-      ['Alt + ↑ / ↓', 'Move note to the next string, keeping its pitch'],
-      ['R', 'Make the beat a rest (clear its notes)'],
+      ['0 - 9', 'Fret on the selected string'],
+      ['1 then 2', 'Two quick digits: frets 10 to 30'],
+      ['Delete', 'Delete note'],
+      ['R', 'Turn the beat into a rest'],
+      ['Alt + Up / Down', 'Move note to another string (same pitch)'],
     ],
   },
   {
-    group: 'Navigation',
+    group: 'Move around',
     items: [
-      ['← / →', 'Previous / next beat (→ at the end adds a beat or measure)'],
-      ['↑ / ↓', 'Higher / lower string'],
-      ['Ctrl + ← / →', 'Previous / next measure'],
+      ['Left / Right', 'Previous / next beat'],
+      ['Up / Down', 'Higher / lower string'],
+      ['Ctrl + Left / Right', 'Previous / next measure'],
       ['Home / End', 'Start / end of measure'],
       ['Ctrl + Home / End', 'Start / end of song'],
     ],
   },
   {
-    group: 'Beats & measures',
+    group: 'Rhythm',
     items: [
-      ['+ / −', 'Longer / shorter duration'],
-      ['.', 'Toggle dotted'],
-      ['I / Insert', 'Insert beat before the cursor'],
-      ['Shift + Delete', 'Delete beat'],
-      ['Alt + ← / →', 'Move beat left / right'],
-      ['Ctrl + C / X / V', 'Copy / cut / paste beat'],
-      ['Ctrl + Enter', 'Insert measure after (Shift: before)'],
-      ['Ctrl + Delete', 'Delete measure'],
-      ['Ctrl + Alt + ← / →', 'Move measure left / right'],
+      ['Shift + 1', 'Whole note'],
+      ['Shift + 2', 'Half note'],
+      ['Shift + 3', 'Quarter note'],
+      ['Shift + 4', 'Eighth note'],
+      ['Shift + 5', 'Sixteenth note'],
+      ['+ / -', 'Longer / shorter'],
+      ['.', 'Dotted'],
     ],
   },
   {
-    group: 'Techniques (on the selected note)',
+    group: 'Techniques',
     items: [
       ['H', 'Hammer-on / pull-off'],
       ['S', 'Slide to next note'],
-      ['B', 'Full bend'],
+      ['B', 'Bend (full)'],
       ['V', 'Vibrato'],
       ['P', 'Palm mute'],
       ['L', 'Let ring'],
@@ -155,14 +165,30 @@ export const SHORTCUTS: { group: string; items: [string, string][] }[] = [
     ],
   },
   {
-    group: 'Project',
+    group: 'Beats & measures',
     items: [
+      ['I', 'Insert beat'],
+      ['Shift + Delete', 'Delete beat'],
+      ['Alt + Left / Right', 'Move beat'],
+      ['Ctrl + C / X / V', 'Copy / cut / paste beat'],
+      ['Ctrl + Enter', 'Insert measure after'],
+      ['Ctrl + Shift + Enter', 'Insert measure before'],
+      ['Ctrl + Delete', 'Delete measure'],
+      ['Ctrl + Alt + Left / Right', 'Move measure'],
+    ],
+  },
+  {
+    group: 'Playback & file',
+    items: [
+      ['Space', 'Play / pause'],
+      ['Shift + Space', 'Stop'],
+      ['M', 'Metronome on / off'],
       ['Ctrl + Z', 'Undo'],
-      ['Ctrl + Shift + Z / Ctrl + Y', 'Redo'],
-      ['Ctrl + S', 'Save'],
-      ['Ctrl + P', 'Print preview & export PDF'],
-      ['Ctrl + = / − / 0', 'Zoom in / out / reset'],
-      ['?', 'Show shortcuts'],
+      ['Ctrl + Shift + Z', 'Redo'],
+      ['Ctrl + S', 'Save now (tabs also save automatically)'],
+      ['Ctrl + P', 'Print preview & PDF'],
+      ['Ctrl + = / - / 0', 'Zoom in / out / reset'],
+      ['?', 'Show this guide'],
     ],
   },
 ];

@@ -17,12 +17,15 @@ interface Props {
   cursor: Position;
   zoom: number;
   onCursor: (pos: Position) => void;
+  /** Beat being played, if playback is running or paused. */
+  playhead?: { measure: number; beat: number } | null;
 }
 
-export function TabCanvas({ song, cursor, zoom, onCursor }: Props) {
+export function TabCanvas({ song, cursor, zoom, onCursor, playhead }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const cursorRef = useRef<SVGRectElement>(null);
+  const playheadRef = useRef<SVGRectElement>(null);
   const [containerW, setContainerW] = useState(900);
 
   useLayoutEffect(() => {
@@ -52,6 +55,11 @@ export function TabCanvas({ song, cursor, zoom, onCursor }: Props) {
     cursorRef.current?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   }, [cursor, layout]);
 
+  // Keep the playing measure in view, like a page turner.
+  useEffect(() => {
+    playheadRef.current?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  }, [playhead?.measure, layout]);
+
   const onPointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
     const svg = svgRef.current;
     if (!svg) return;
@@ -77,6 +85,7 @@ export function TabCanvas({ song, cursor, zoom, onCursor }: Props) {
           aria-label="Tablature editor. Use arrow keys to move, numbers to enter frets."
         >
           <g transform={`translate(${SHEET_PAD} ${SHEET_PAD})`}>
+            {playhead && <PlayheadOverlay layout={layout} playhead={playhead} innerRef={playheadRef} />}
             <CursorOverlay song={song} layout={layout} cursor={cursor} cursorRef={cursorRef} />
             {layout.systems.map((sys, i) => (
               <g key={i} transform={`translate(0 ${sys.y})`}>
@@ -113,6 +122,22 @@ function CursorOverlay({ song, layout, cursor, cursorRef }: { song: Song; layout
     <g pointerEvents="none">
       <rect x={bl.slotX} y={system.y + system.staffTop - m.gap * 0.6} width={bl.slotW} height={system.staffBottom - system.staffTop + m.gap * 1.2} fill="var(--cursor-wash)" />
       <rect ref={cursorRef} x={bl.x - w / 2} y={y - h / 2} width={w} height={h} rx={2} fill="none" stroke="var(--cursor)" strokeWidth={1.4} style={{ scrollMargin: 48 }} />
+    </g>
+  );
+}
+
+/** Amber wash over the playing measure and a bar over the playing beat. */
+function PlayheadOverlay({ layout, playhead, innerRef }: { layout: TrackLayout; playhead: { measure: number; beat: number }; innerRef: React.Ref<SVGRectElement> }) {
+  const found = findMeasure(layout, playhead.measure);
+  if (!found) return null;
+  const { system, measure } = found;
+  const bl = measure.beats[playhead.beat];
+  const top = system.y + system.staffTop - layout.metrics.gap * 0.8;
+  const height = system.staffBottom - system.staffTop + layout.metrics.gap * 1.6;
+  return (
+    <g pointerEvents="none">
+      <rect ref={innerRef} x={measure.x} y={top} width={measure.w} height={height} fill="var(--playhead)" opacity={0.08} style={{ scrollMargin: 64 }} />
+      {bl && <rect x={bl.x - 1} y={top} width={2} height={height} rx={1} fill="var(--playhead)" />}
     </g>
   );
 }

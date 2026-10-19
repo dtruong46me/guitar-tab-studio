@@ -1,145 +1,91 @@
-import { useCallback, useEffect, useState } from 'react';
-import { isDirty } from '../editor/editor';
-import { keyToIntent, type AppCommand } from '../editor/keymap';
-import { BottomPanel, clampZoom, ZOOM_STEP } from './BottomPanel';
-import { HelpDialog } from './HelpDialog';
-import { LeftSidebar } from './LeftSidebar';
-import { PrintPreview } from './PrintPreview';
-import { ProjectsDialog } from './ProjectsDialog';
-import { RightSidebar } from './RightSidebar';
-import { TabCanvas } from './TabCanvas';
-import { Toolbar } from './Toolbar';
-import { useStudio } from './useStudio';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import type { Song } from '../model/types';
+import { loadProject } from '../io/storage';
+import { Toast, TooltipLayer } from './controls';
+import { EditorScreen } from './editor/EditorScreen';
+import { HomeScreen } from './home/HomeScreen';
+import { useTheme } from './theme';
 
-type Dialog = 'print' | 'projects' | 'help' | null;
+/** Routes: "#/" is the library, "#/tab/<id>" the editor. The hash keeps Back/Forward working. */
+type Route = { name: 'home' } | { name: 'tab'; id: string };
 
-function loadPref<T extends string | number>(key: string, fallback: T): T {
-  try {
-    const v = localStorage.getItem(key);
-    if (v === null) return fallback;
-    return (typeof fallback === 'number' ? Number(v) : v) as T;
-  } catch {
-    return fallback;
-  }
-}
-
-function savePref(key: string, value: string | number) {
-  try {
-    localStorage.setItem(key, String(value));
-  } catch {
-    /* preferences are optional */
-  }
-}
-
-/** Focus is in a text control: let it handle keys itself. */
-function isTyping(target: EventTarget | null): boolean {
-  const el = target as HTMLElement | null;
-  if (!el) return false;
-  return el.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName);
+function parseHash(): Route {
+  const m = /^#\/tab\/([\w-]+)$/.exec(window.location.hash);
+  return m ? { name: 'tab', id: m[1] } : { name: 'home' };
 }
 
 export function App() {
-  const studio = useStudio();
-  const { state, dispatch } = studio;
-  const [dialog, setDialog] = useState<Dialog>(null);
-  const [zoom, setZoom] = useState(() => clampZoom(loadPref('gts:zoom', 1)) || 1);
-  const [theme, setTheme] = useState<'studio' | 'paper'>(() => (loadPref<string>('gts:theme', 'studio') === 'paper' ? 'paper' : 'studio'));
+  const [route, setRoute] = useState<Route>(parseHash);
+  const [theme, setTheme] = useTheme();
+  const [toast, setToast] = useState<{ text: string; tone: 'info' | 'error'; id: number } | null>(null);
+  // The song being edited and whether it already exists in storage.
+  const [open, setOpen] = useState<{ song: Song; saved: boolean } | null>(null);
+  const pendingNew = useRef<Song | null>(null);
+
+  const notify = useCallback((text: string, tone: 'info' | 'error' = 'info') => setToast({ text, tone, id: Date.now() }), []);
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 3200);
+    return () => clearTimeout(t);
+  }, [toast]);
 
   useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-    savePref('gts:theme', theme);
-  }, [theme]);
-  useEffect(() => savePref('gts:zoom', zoom), [zoom]);
-  useEffect(() => {
-    document.title = `${isDirty(state) ? '• ' : ''}${state.song.meta.title || 'Untitled'} — Guitar Tab Studio`;
-  }, [state]);
+    const onHash = () => setRoute(parseHash());
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
 
-  const runApp = useCallback(
-    (command: AppCommand) => {
-      switch (command) {
-        case 'save':
-          void studio.save();
-          break;
-        case 'exportPdf':
-          setDialog('print');
-          break;
-        case 'help':
-          setDialog('help');
-          break;
-        case 'zoomIn':
-          setZoom((z) => clampZoom(z + ZOOM_STEP));
-          break;
-        case 'zoomOut':
-          setZoom((z) => clampZoom(z - ZOOM_STEP));
-          break;
-        case 'zoomReset':
-          setZoom(1);
-          break;
-      }
-    },
-    [studio],
-  );
-
+  // Resolve the song for the current route.
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const intent = keyToIntent(e);
-      if (!intent) return;
-      const typing = isTyping(e.target);
-      // While typing in a field or with a dialog open, only Save stays global.
-      if ((typing || dialog) && !(intent.kind === 'app' && intent.command === 'save')) return;
-      e.preventDefault();
-      if (intent.kind === 'app') runApp(intent.command);
-      else dispatch(intent.action);
+    if (route.name !== 'tab') {
+      setOpen(null);
+      document.title = 'Guitar Tab Studio';
+      return;
+    }
+    if (open?.song.id === route.id) return;
+    if (pendingNew.current?.id === route.id) {
+      setOpen({ song: pendingNew.current, saved: false });
+      pendingNew.current = null;
+      return;
+    }
+    let cancelled = false;
+    loadProject(route.id)
+      .then((song) => {
+        if (cancelled) return;
+        if (song) setOpen({ song, saved: true });
+        else {
+          notify('That tab was not found. It may never have been edited, or it was deleted.', 'error');
+          window.location.hash = '#/';
+        }
+      })
+      .catch(() => {
+        notify('Browser storage is unavailable.', 'error');
+        window.location.hash = '#/';
+      });
+    return () => {
+      cancelled = true;
     };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [dialog, dispatch, runApp]);
+  }, [route, open, notify]);
 
-  const close = useCallback(() => setDialog(null), []);
+  const openSong = useCallback((song: Song) => {
+    setOpen({ song, saved: true });
+    window.location.hash = `#/tab/${song.id}`;
+  }, []);
+
+  const createSong = useCallback((song: Song) => {
+    pendingNew.current = song;
+    setOpen({ song, saved: false });
+    window.location.hash = `#/tab/${song.id}`;
+  }, []);
 
   return (
-    <div className="h-full flex flex-col text-ink">
-      <Toolbar
-        song={state.song}
-        track={state.cursor.track}
-        history={state.history}
-        dirty={isDirty(state)}
-        dispatch={dispatch}
-        onSave={() => void studio.save()}
-        onExport={() => setDialog('print')}
-        onProjects={() => setDialog('projects')}
-      />
-      <div className="flex-1 min-h-0 flex">
-        <LeftSidebar song={state.song} track={state.cursor.track} dispatch={dispatch} />
-        <main className="flex-1 min-w-0 bg-bg0" aria-label="Tablature">
-          {studio.ready && <TabCanvas song={state.song} cursor={state.cursor} zoom={zoom} onCursor={(pos) => dispatch({ type: 'setCursor', pos })} />}
-        </main>
-        <RightSidebar song={state.song} cursor={state.cursor} dispatch={dispatch} />
-      </div>
-      <BottomPanel
-        song={state.song}
-        cursor={state.cursor}
-        zoom={zoom}
-        theme={theme}
-        onZoom={setZoom}
-        onTheme={() => setTheme((t) => (t === 'studio' ? 'paper' : 'studio'))}
-        onHelp={() => setDialog('help')}
-      />
-
-      {dialog === 'print' && (
-        <PrintPreview song={state.song} track={state.cursor.track} onClose={close} onExported={(name) => studio.notify(`Exported ${name}.`)} onError={(m) => studio.notify(m, 'error')} />
+    <div className="h-full text-ink">
+      {route.name === 'home' && <HomeScreen onOpen={openSong} onCreate={createSong} notify={notify} theme={theme} onTheme={setTheme} />}
+      {route.name === 'tab' && open && open.song.id === route.id && (
+        <EditorScreen key={open.song.id} song={open.song} saved={open.saved} onHome={() => (window.location.hash = '#/')} notify={notify} theme={theme} onTheme={setTheme} />
       )}
-      {dialog === 'projects' && <ProjectsDialog studio={studio} onClose={close} />}
-      {dialog === 'help' && <HelpDialog onClose={close} />}
-
-      {studio.toast && (
-        <div
-          role="status"
-          className={`fixed bottom-14 left-1/2 -translate-x-1/2 z-[60] px-3 py-2 rounded-md border text-[13px] shadow-lg bg-bg200 ${studio.toast.tone === 'error' ? 'border-danger text-danger' : 'border-line text-ink'}`}
-        >
-          {studio.toast.text}
-        </div>
-      )}
+      <TooltipLayer />
+      {toast && <Toast key={toast.id} text={toast.text} tone={toast.tone} />}
     </div>
   );
 }

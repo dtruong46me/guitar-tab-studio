@@ -44,6 +44,12 @@ export async function deleteProject(id: string): Promise<void> {
   await (await db()).delete('projects', id);
 }
 
+/** All saved songs, most recently edited first (the home screen renders previews from them). */
+export async function listSongs(): Promise<Song[]> {
+  const all = await (await db()).getAll('projects');
+  return all.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+}
+
 export async function listProjects(): Promise<ProjectSummary[]> {
   const all = await (await db()).getAll('projects');
   return all
