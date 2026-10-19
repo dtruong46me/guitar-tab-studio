@@ -52,6 +52,8 @@ export type EditorAction =
   | { type: 'stepDuration'; dir: 1 | -1 }
   | { type: 'toggleDot' }
   | { type: 'toggleTechnique'; key: BooleanTechnique }
+  /** Toggles a technique on all notes of the beat at the cursor (dead notes are left alone). */
+  | { type: 'toggleBeatTechnique'; key: 'letRing' | 'palmMute' }
   | { type: 'toggleStroke'; dir: Stroke }
   | { type: 'setBeatProps'; patch: Partial<BeatProps> }
   | { type: 'setTechnique'; key: keyof NoteTechniques; value: NoteTechniques[keyof NoteTechniques] | undefined }
@@ -246,6 +248,12 @@ export function editorReducer(s: EditorState, a: EditorAction): EditorState {
       if (a.key === 'dead' && !note) return exec(s, cmd.setDeadNote(c));
       if (!note) return { ...s, status: 'Select a note to apply a technique.' };
       return exec(s, cmd.setTechnique(c, a.key, note.techniques[a.key] ? undefined : true));
+    }
+    case 'toggleBeatTechnique': {
+      const notes = currentBeat(s).notes.filter((n) => !n.techniques.dead);
+      if (!notes.length) return { ...s, status: 'This beat has no notes.' };
+      const on = notes.every((n) => n.techniques[a.key]);
+      return exec(s, cmd.setBeatTechnique(c, notes.map((n) => n.string), a.key, on ? undefined : true));
     }
     case 'setTechnique': {
       const note = findNote(s.song, c);

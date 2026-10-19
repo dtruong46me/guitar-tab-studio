@@ -98,7 +98,7 @@ export function keyToIntent(e: KeyInput, now = Date.now()): Intent | null {
     case 'p':
       return ed({ type: 'toggleTechnique', key: 'palmMute' });
     case 'l':
-      return ed({ type: 'toggleTechnique', key: 'letRing' });
+      return ed(e.shiftKey ? { type: 'toggleBeatTechnique', key: 'letRing' } : { type: 'toggleTechnique', key: 'letRing' });
     case 'g':
       return ed({ type: 'toggleTechnique', key: 'ghost' });
     case 'x':
@@ -167,7 +167,8 @@ export const SHORTCUTS: { group: string; items: [keys: string, action: string][]
       ['B', 'Bend (full)'],
       ['V', 'Vibrato'],
       ['P', 'Palm mute'],
-      ['L', 'Let ring'],
+      ['L', 'Let ring (rings until the string is played again or the let ring ends)'],
+      ['Shift + L', 'Let ring for every note of the beat'],
       ['N', 'Natural harmonic'],
       ['T', 'Tap'],
       ['G', 'Ghost note'],

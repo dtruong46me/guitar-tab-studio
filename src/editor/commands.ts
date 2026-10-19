@@ -37,6 +37,12 @@ export const setTechnique = <K extends keyof NoteTechniques>(pos: Position, key:
   apply: (s) => ops.setTechnique(s, pos, key, value),
 });
 
+/** Sets (or clears) a technique on several notes of one beat, e.g. let ring for a whole chord. */
+export const setBeatTechnique = <K extends keyof NoteTechniques>(pos: Position, strings: number[], key: K, value: NoteTechniques[K] | undefined): Command => ({
+  label: 'Change technique',
+  apply: (s) => strings.reduce((song, string) => ops.setTechnique(song, { ...pos, string }, key, value), s),
+});
+
 export const moveNoteToString = (pos: Position, target: number): Command => ({
   label: 'Move note to string',
   apply: (s) => ops.moveNoteToString(s, pos, target),

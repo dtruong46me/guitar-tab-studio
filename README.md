@@ -41,6 +41,7 @@ Press `?` in the editor for the full, searchable shortcut guide. The most used k
 | `R`, `Delete` | Make rest, delete note |
 | `H S B V P L N T G A` | Hammer/pull, slide, bend, vibrato, palm mute, let ring, harmonic, tap, ghost, accent |
 | `X` | Dead note / string slap (works on an empty string) |
+| `Shift+L` | Let ring for every note of the beat. A let ring note rings until its string is played again or until a beat played without let ring (string slaps don't end it), so turn it off on the beat before a chord change to keep chords from blurring |
 | `C`, `D`, `U` | Chord name, strum down, strum up |
 | `Space`, `Shift+Space`, `M` | Play/pause, stop, metronome |
 | `Ctrl+Z`, `Ctrl+Shift+Z` | Undo, redo |

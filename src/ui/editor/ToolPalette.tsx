@@ -163,7 +163,7 @@ export function ToolPalette({ song, cursor, dispatch, panel, onChord }: Props) {
       <div className="grid grid-cols-2 gap-1">
         <ToolButton label="Vibrato" shortcut="V" tip="Vibrato" pressed={!!tech.vibrato} disabled={noNote} onClick={() => toggle('vibrato')} />
         <ToolButton label="Palm mute" shortcut="P" tip="Palm mute (P.M.)" pressed={!!tech.palmMute} disabled={noNote} onClick={() => toggle('palmMute')} />
-        <ToolButton label="Let ring" shortcut="L" tip="Let the note ring over the next ones" pressed={!!tech.letRing} disabled={noNote} onClick={() => toggle('letRing')} />
+        <ToolButton label="Let ring" shortcut="L" tip="Let the note ring until the string is played again or the let ring ends (Shift + L: whole beat)" pressed={!!tech.letRing} disabled={noNote} onClick={() => toggle('letRing')} />
         <ToolButton label="Tap" shortcut="T" tip="Tapped note" pressed={!!tech.tapped} disabled={noNote} onClick={() => toggle('tapped')} />
         <ToolButton label="Natural harm." shortcut="N" tip="Natural harmonic" pressed={tech.harmonic === 'natural'} disabled={noNote} onClick={() => set('harmonic', 'natural')} />
         <ToolButton label="Artif. harm." tip="Artificial harmonic (A.H.)" pressed={tech.harmonic === 'artificial'} disabled={noNote} onClick={() => set('harmonic', 'artificial')} />
