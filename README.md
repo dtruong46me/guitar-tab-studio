@@ -26,6 +26,10 @@ The editor layout puts what you use constantly at your fingertips and keeps rare
 - **Selection panel** (right, `Ctrl+]`): the selected note (fret, sounding pitch, techniques), beat and measure (time signature change, add, move, clear, delete).
 - **Status bar**: track tabs (click to switch, click the active one for rename/delete, + to add), position, theme, zoom.
 
+### Importing tabs from PDF
+
+**Import** on the Home screen accepts tab PDFs exported by Guitar Pro, MuseScore, TuxGuitar or this app, as well as `.json` projects. The importer reads the TAB staff from the PDF's vector content: staff and bar lines, fret numbers on each string, chord names, section labels (Intro, Verse, Chorus...), tempo and tempo changes, H/P, let ring, P.M., dynamics, title, artist and credits. Tablature doesn't print rhythm, so durations are estimated: each bar is filled exactly with the durations that best match the note spacing, helped by rest and notehead symbols when the PDF contains them. Check the rhythm while listening. Scanned (image-only) PDFs can't be read. Imported tabs stay in your browser's library.
+
 Press `?` in the editor for the full, searchable shortcut guide. The most used keys:
 
 | Keys | Action |
@@ -56,7 +60,8 @@ src/
   render/    SVG renderer for ops (editor, print preview, library thumbnails)
   audio/     Playback: schedule builder (pure), Karplus-Strong guitar synth, look-ahead transport
   pdf/       Pagination (A4 portrait/landscape, title block, page numbers) and the jsPDF writer
-  io/        Portable JSON project format (validated import) and IndexedDB persistence
+  io/        Portable JSON project format (validated import), IndexedDB persistence, and PDF tab
+             import (pdfTab/: pdf.js reader + analyzer that rebuilds a song from a tab PDF)
   ui/        React app: home library, editor (title bar, properties bar, tools panel, sheet, selection panel, status bar), dialogs
 ```
 
@@ -77,4 +82,4 @@ Design tokens (colors, type, spacing) come from the Guitar Tab Studio design sys
 | 2 | Rhythm notation, rests, techniques, tuning configuration, automatic layout | Done (standard-notation staff and key signature not yet) |
 | 3 | Multipage vector PDF export and print preview | Done |
 | 4 | Playback, metronome, loop, synchronized playhead | Done |
-| 5 | ASCII tab import/export, accessibility pass, polish | Project management done; ASCII not started |
+| 5 | Tab import, accessibility pass, polish | Project management and PDF tab import done; ASCII tab import not started |
